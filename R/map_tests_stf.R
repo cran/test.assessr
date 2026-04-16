@@ -146,7 +146,7 @@ map_tests_stf <- function(path = "tests/testthat") {
 #' @keywords internal
 #' @importFrom utils head tail
 nest_test <- function(x, token_text = "^context$") {
- 
+  
   # Store row names of the parse data
   rx <- rownames(x)
   

@@ -2,16 +2,17 @@
 % Please edit documentation in R/generate_test_report.R
 \name{generate_coverage_section}
 \alias{generate_coverage_section}
-\title{Generate Coverage Section}
+\title{Generate Coverage Section (single framework)}
 \usage{
 generate_coverage_section(assessment_results, pkg_name)
 }
 \arguments{
-\item{assessment_results}{- input data}
+\item{assessment_results}{- input data with \code{res_cov}}
 
 \item{pkg_name}{- name of the package}
 }
 \description{
-Generates the Coverage section for the HTML report.
+Generates the Coverage section for the HTML report from a single
+  framework's \code{res_cov}.
 }
 \keyword{internal}

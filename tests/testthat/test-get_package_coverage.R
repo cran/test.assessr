@@ -112,3 +112,131 @@ test_that("get_package_coverage outputs message and returns NULL when package in
   )
   expect_null(result)
 })
+
+###########################
+
+
+
+
+
+
+test_that("on.exit restores NULL when old covr.record_tests was NULL (IF branch)", {
+  skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  options_calls <- list()
+  
+  # Work on a local copy so stubs bind to it, then call that copy
+  fn <- test.assessr::get_package_coverage
+  
+  ## --- Stub heavy internals as they appear in the body ---
+  mockery::stub(fn, "set_up_pkg", function(path, ...) {
+    list(package_installed = TRUE, pkg_source_path = path)
+  })
+  mockery::stub(fn, "test.assessr::set_up_pkg", function(path, ...) {
+    list(package_installed = TRUE, pkg_source_path = path)
+  })
+  mockery::stub(fn, "install_package_local", function(...) TRUE)
+  mockery::stub(fn, "test.assessr::install_package_local", function(...) TRUE)
+  mockery::stub(fn, "run_covr_modes", function(...) "dummy-cov")
+  mockery::stub(fn, "test.assessr::run_covr_modes", function(...) "dummy-cov")
+  mockery::stub(fn, "cleanup_and_return_null", function(...) invisible(NULL))
+  mockery::stub(fn, "test.assessr::cleanup_and_return_null", function(...) invisible(NULL))
+  
+  ## --- Control what the function *sees* for old value ---
+  stub_getOption <- function(x, default = NULL) {
+    if (identical(x, "covr.record_tests")) return(NULL)  # force IF branch
+    if (identical(x, "repos")) return(c(CRAN = "https://example-cran", RSPM = "https://example-rspm"))
+    base::getOption(x, default)
+  }
+  mockery::stub(fn, "getOption", stub_getOption)
+  
+  ## --- Capture options() arguments reliably (preserve NULL, evaluate others) ---
+  stub_options <- function(...) {
+    dots_expr <- as.list(substitute(list(...)))[-1]
+    eval_env <- parent.frame()
+    args <- lapply(dots_expr, function(expr) if (identical(expr, quote(NULL))) NULL else eval(expr, eval_env))
+    names(args) <- names(dots_expr)
+    options_calls <<- append(options_calls, list(args))
+    invisible(NULL)
+  }
+  mockery::stub(fn, "options", stub_options)
+  
+  ## --- Make on.exit run immediately to avoid harness interference ---
+  mockery::stub(fn, "on.exit", function(expr, add = FALSE) {
+    eval.parent(substitute(expr), n = 1L)
+    invisible(NULL)
+  })
+  
+  # Call the stubbed copy
+  res <- fn(path = tempdir())
+  expect_identical(res, "dummy-cov")
+  
+  # Filter only options() calls that touched covr.record_tests
+  covr_calls <- Filter(function(x) "covr.record_tests" %in% names(x), options_calls)
+  
+  # We expect:
+  #   - set to TRUE in the body
+  #   - restore to NULL via (immediately executed) on.exit
+  expect_gte(length(covr_calls), 2L)
+  expect_identical(covr_calls[[1]][["covr.record_tests"]], TRUE)
+  expect_null(covr_calls[[length(covr_calls)]][["covr.record_tests"]])
+})
+
+
+test_that("on.exit restores previous non-NULL covr.record_tests (ELSE branch)", {
+  skip_on_cran()
+  skip_if_not_installed("mockery")
+  
+  options_calls <- list()
+  old_value <- FALSE
+  
+  fn <- test.assessr::get_package_coverage
+  
+  ## --- Stub heavy internals as they appear in the body ---
+  mockery::stub(fn, "set_up_pkg", function(path, ...) {
+    list(package_installed = TRUE, pkg_source_path = path)
+  })
+  mockery::stub(fn, "test.assessr::set_up_pkg", function(path, ...) {
+    list(package_installed = TRUE, pkg_source_path = path)
+  })
+  mockery::stub(fn, "install_package_local", function(...) TRUE)
+  mockery::stub(fn, "test.assessr::install_package_local", function(...) TRUE)
+  mockery::stub(fn, "run_covr_modes", function(...) "dummy-cov")
+  mockery::stub(fn, "test.assessr::run_covr_modes", function(...) "dummy-cov")
+  mockery::stub(fn, "cleanup_and_return_null", function(...) invisible(NULL))
+  mockery::stub(fn, "test.assessr::cleanup_and_return_null", function(...) invisible(NULL))
+  
+  ## --- Control what the function *sees* as old value ---
+  stub_getOption <- function(x, default = NULL) {
+    if (identical(x, "covr.record_tests")) return(old_value)  # force ELSE branch
+    if (identical(x, "repos")) return(c(CRAN = "https://example-cran", RSPM = "https://example-rspm"))
+    base::getOption(x, default)
+  }
+  mockery::stub(fn, "getOption", stub_getOption)
+  
+  ## --- Capture options() arguments reliably (preserve NULL, evaluate others) ---
+  stub_options <- function(...) {
+    dots_expr <- as.list(substitute(list(...)))[-1]
+    eval_env <- parent.frame()
+    args <- lapply(dots_expr, function(expr) if (identical(expr, quote(NULL))) NULL else eval(expr, eval_env))
+    names(args) <- names(dots_expr)
+    options_calls <<- append(options_calls, list(args))
+    invisible(NULL)
+  }
+  mockery::stub(fn, "options", stub_options)
+  
+  ## --- Make on.exit run immediately ---
+  mockery::stub(fn, "on.exit", function(expr, add = FALSE) {
+    eval.parent(substitute(expr), n = 1L)
+    invisible(NULL)
+  })
+  
+  res <- fn(path = tempdir())
+  expect_identical(res, "dummy-cov")
+  
+  covr_calls <- Filter(function(x) "covr.record_tests" %in% names(x), options_calls)
+  expect_gte(length(covr_calls), 2L)
+  expect_identical(covr_calls[[1]][["covr.record_tests"]], TRUE)          # set in body
+  expect_identical(covr_calls[[length(covr_calls)]][["covr.record_tests"]], old_value)  # restored
+})

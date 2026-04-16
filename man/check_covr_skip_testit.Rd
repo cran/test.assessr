@@ -2,54 +2,31 @@
 % Please edit documentation in R/run_covr_skip_nstf.R
 \name{check_covr_skip_testit}
 \alias{check_covr_skip_testit}
-\title{Run testit Tests Individually and Capture Issues}
+\title{Run testit tests individually, capturing all warnings and errors, with dynamic package root detection}
 \usage{
 check_covr_skip_testit(pkg_name, mapping, test_path)
 }
 \arguments{
-\item{pkg_name}{Character string. The package name. (Not used internally,
-retained only for compatibility with other NSTF utilities.)}
+\item{pkg_name}{The package name (not used in this function, but kept for compatibility)}
 
-\item{mapping}{A data frame containing a column `test_file` listing test
-files to be run from the `test_path` directory.}
+\item{mapping}{A data frame with a column `test_file` listing test file names}
 
-\item{test_path}{Path to the directory containing the `testit` test files.}
+\item{test_path}{The path to the test directory (e.g., tests/testit)}
 }
 \value{
-A base R `data.frame` with two columns:
-
-* **test_file** — The name of the testit file evaluated  
-* **issue_type** — One of:  
-    * `"warning: <message>"` — A warning was raised while sourcing the file  
-    * `"error: <message>"` — An error occurred while sourcing the file  
-    * `"No tests skipped"` — Returned as a single-row result if no
-      warnings or errors occurred in any test file  
-
-The data frame summarizes which testit files fail to run cleanly, allowing
-early detection of broken or skipped tests in NSTF workflows.
+A data frame with test_file and issue_type columns
 }
 \description{
-This internal NSTF utility runs `testit` test files one-by-one and reports
-whether sourcing each file produces a warning or an error. The function
-uses dynamic package-root detection by searching upward for a
-`DESCRIPTION` file to ensure tests run in the correct working directory.
+Run testit tests individually, capturing all warnings and errors, with dynamic package root detection
 }
-\details{
-The function does not evaluate testthat-based tests and is intended only
-for lightweight or legacy `testit` scripts.
-}
-\section{Output Meaning}{
-
-The returned data frame indicates potential problems with testit files
-before coverage or build steps occur. There is no side effect other than
-evaluation of test files; all results are reported in the data frame.
-}
-
 \seealso{
 Other nstf_utility: 
-\code{\link{check_covr_skip_nstf}()},
+\code{\link{create_base_tests_coverage}()},
+\code{\link{create_nstf_covr_list}()},
+\code{\link{create_tinytest_coverage}()},
 \code{\link{get_nstf_test_path}()},
 \code{\link{get_source_test_mapping_nstf}()},
+\code{\link{restrict_test_paths_to_framework}()},
 \code{\link{run_covr_skip_nstf}()}
 }
 \concept{nstf_utility}

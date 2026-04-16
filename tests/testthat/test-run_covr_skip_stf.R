@@ -63,10 +63,10 @@ test_that("run_covr_skip_stf filters test results and generates skip map", {
   mockery::stub(run_covr_skip_stf, "unloadNamespace", function(...) NULL)
   
   # fail reporter stub
-  mockery::stub(run_covr_skip_stf, "create_fail_reporter", function(...) NULL)
+  mockery::stub(run_covr_skip_stf, "create_fail_reporter", function(test_path, pkg, cov_env) NULL)
   
   # create_test_reporter must return valid minimal objects
-  mockery::stub(run_covr_skip_stf, "create_test_reporter", function(test_path, pkg) {
+  mockery::stub(run_covr_skip_stf, "create_test_reporter", function(test_path, pkg, cov_env) {
     list(
       list(file="test-a.R", context="script1"),
       list(file="test-b.R", context="script2"),
@@ -218,9 +218,200 @@ test_that("run_covr_skip_stf handles missing test directory correctly", {
 })
 
 
-test_that("fallback problem_tests is created when no failed/skipped/error tests", {
+testthat::test_that("Fallback triggers and succeeds: package_coverage() is called and res_sum recomputed", {
+  skip_on_cran()
   
-  # Mocked test_map structure
+  # ---- Arrange minimal on-disk structure so checkmate passes ----
+  pkg_dir <- tempfile("pkgx_")
+  dir.create(pkg_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(file.path(pkg_dir, "tests"), showWarnings = FALSE)
+  
+  cov_env <- new.env(parent = emptyenv())
+  
+  # ---- Build a 'no coverage' sentinel res_sum for first summary call ----
+  sentinel_fc <- structure(NA_real_, .Dim = 1L, .Dimnames = list("no_coverage.R"))
+  res_sum_no_cov <- list(
+    total_cov = NA,
+    res_cov = list(
+      name     = NA,
+      coverage = list(filecoverage = sentinel_fc, totalcoverage = NA),
+      errors   = NA,
+      notes    = NA
+    )
+  )
+  
+  # ---- Build a normal res_sum to be returned after fallback ----
+  res_sum_ok <- list(
+    total_cov = 0.42,
+    res_cov = list(
+      name     = "pkgx",
+      coverage = list(filecoverage = c("R/a.R" = 1), totalcoverage = 42),
+      errors   = NULL,
+      notes    = NULL
+    )
+  )
+  
+  # ---- Create mocks/stubs for the long chain above the lines under test ----
+  # Plumbing helpers
+  mock_get_pkg_name        <- function(path) "pkgx"
+  mock_get_stf_test_path   <- function(test_pkg_data, testdir) testdir
+  mock_setup_covr_env      <- function(...) list(datasets_loaded = character(), root_dir = pkg_dir,
+                                                 initial_state = character(), helpers_loaded = character())
+  mock_create_fail_reporter <- function(...) invisible(NULL)
+  mock_create_test_reporter <- function(...) list()  # not used downstream in our stubs
+  mock_fix_test_context    <- function(x) x
+  
+  # Map + test results to force `failed <- TRUE`
+  mock_map_tests_stf <- function(map_path) data.frame(test = "t1", stringsAsFactors = FALSE)
+  mock_get_tests_long_sum_stf <- function(test_results) {
+    data.frame(
+      context = "ctx1", test = "t1",
+      status  = "FAILED",
+      file    = "tests/testthat/test-foo.R#L1",
+      n = 1L, time = 0.01,
+      stringsAsFactors = FALSE
+    )
+  }
+  
+  mock_get_tests_skip_stf      <- function(problem_tests, test_map) data.frame(
+    file = "test-foo.R", line1 = 1L, line2 = 1L, stringsAsFactors = FALSE
+  )
+  mock_create_coverage_skip_stf <- function(...) "cvr_env"  # initial cvr from environment_coverage path
+  
+  # We stub dplyr helpers because rename/all_of are invoked but irrelevant here
+  mock_dplyr_rename <- function(df, ...) df
+  mock_dplyr_all_of <- function(x) x
+  
+  # ---- Mock create_results_summary to be called twice (before and after fallback) ----
+  m_create_results_summary <- mockery::mock(res_sum_no_cov, res_sum_ok)
+  
+  # ---- Stub everything into run_covr_skip_stf() ----
+  mockery::stub(run_covr_skip_stf, "get_pkg_name",               mock_get_pkg_name)
+  mockery::stub(run_covr_skip_stf, "get_stf_test_path",          mock_get_stf_test_path)
+  mockery::stub(run_covr_skip_stf, "setup_covr_env",             mock_setup_covr_env)
+  mockery::stub(run_covr_skip_stf, "create_fail_reporter",       mock_create_fail_reporter)
+  mockery::stub(run_covr_skip_stf, "create_test_reporter",       mock_create_test_reporter)
+  mockery::stub(run_covr_skip_stf, "fix_test_context",           mock_fix_test_context)
+  mockery::stub(run_covr_skip_stf, "map_tests_stf",              mock_map_tests_stf)
+  mockery::stub(run_covr_skip_stf, "get_tests_long_sum_stf",     mock_get_tests_long_sum_stf)
+  mockery::stub(run_covr_skip_stf, "get_tests_skip_stf",         mock_get_tests_skip_stf)
+  mockery::stub(run_covr_skip_stf, "create_coverage_skip_stf",   mock_create_coverage_skip_stf)
+  mockery::stub(run_covr_skip_stf, "dplyr::rename",              mock_dplyr_rename)
+  mockery::stub(run_covr_skip_stf, "dplyr::all_of",              mock_dplyr_all_of)
+  mockery::stub(run_covr_skip_stf, "create_results_summary",     m_create_results_summary)
+  
+  # withr::with_dir should evaluate the `code` argument and return its value
+  mock_with_dir <- function(path, code) eval.parent(substitute(code))
+  mockery::stub(run_covr_skip_stf, "withr::with_dir", mock_with_dir)
+  
+  # covr::package_coverage should be called by the fallback and return a new cvr
+  mock_pkg_cov <- function(path, type, quiet) {
+    testthat::expect_identical(type, "tests")
+    "cvr_pkgcov"
+  }
+  mockery::stub(run_covr_skip_stf, "covr::package_coverage", mock_pkg_cov)
+  
+  # ---- Act & Assert ----
+  # We expect the specific fallback message to be emitted
+  testthat::expect_message(
+    run_covr_skip_stf(pkg_source_path = pkg_dir, test_pkg_data = NULL, cov_env = cov_env),
+    "Detected 'no_coverage\\.R' sentinel\\.",  # regex escape the dot
+    perl = TRUE
+  )
+  
+  # create_results_summary must have been called twice:
+  mockery::expect_called(m_create_results_summary, 2)
+  
+  # 1st call should receive the cvr from create_coverage_skip_stf()
+  mockery::expect_args(m_create_results_summary, 1, "cvr_env")
+  
+  # 2nd call should receive the cvr from covr::package_coverage()
+  mockery::expect_args(m_create_results_summary, 2, "cvr_pkgcov")
+})
+
+
+testthat::test_that("Fallback triggers and errors: error handler path sets cvr <- NULL and res_sum recomputed", {
+  skip_on_cran()
+  
+  # ---- Arrange minimal on-disk structure ----
+  pkg_dir <- tempfile("pkgx_")
+  dir.create(pkg_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(file.path(pkg_dir, "tests"), showWarnings = FALSE)
+  
+  cov_env <- new.env(parent = emptyenv())
+  
+  # ---- Sentinel first summary ----
+  sentinel_fc <- structure(NA_real_, .Dim = 1L, .Dimnames = list("no_coverage.R"))
+  res_sum_no_cov <- list(
+    total_cov = NA,
+    res_cov = list(
+      name     = NA,
+      coverage = list(filecoverage = sentinel_fc, totalcoverage = NA),
+      errors   = NA,
+      notes    = NA
+    )
+  )
+  
+  # ---- Second summary (post-fallback) can be anything; we only check call args ----
+  res_sum_after_error <- list(total_cov = NA_real_, res_cov = list(name = NA, coverage = list(), errors = NULL, notes = NULL))
+  
+  # ---- Stubs/mocks ----
+  mockery::stub(run_covr_skip_stf, "get_pkg_name",             function(path) "pkgx")
+  mockery::stub(run_covr_skip_stf, "get_stf_test_path",        function(test_pkg_data, testdir) testdir)
+  mockery::stub(run_covr_skip_stf, "setup_covr_env",           function(...) list(datasets_loaded = character(), root_dir = pkg_dir, initial_state = character(), helpers_loaded = character()))
+  mockery::stub(run_covr_skip_stf, "create_fail_reporter",     function(...) invisible(NULL))
+  mockery::stub(run_covr_skip_stf, "create_test_reporter",     function(...) list())
+  mockery::stub(run_covr_skip_stf, "fix_test_context",         function(x) x)
+  mockery::stub(run_covr_skip_stf, "map_tests_stf",            function(map_path) data.frame(test = "t1", stringsAsFactors = FALSE))
+  mockery::stub(run_covr_skip_stf, "get_tests_long_sum_stf",   function(test_results) {
+    data.frame(
+      context = "ctx1", test = "t1",
+      status  = "FAILED",
+      file    = "tests/testthat/test-foo.R#L1",
+      n = 1L, time = 0.01,
+      stringsAsFactors = FALSE
+    )
+  })
+  mockery::stub(run_covr_skip_stf, "get_tests_skip_stf",       function(problem_tests, test_map) data.frame(file = "test-foo.R", line1 = 1L, line2 = 1L))
+  mockery::stub(run_covr_skip_stf, "create_coverage_skip_stf", function(...) "cvr_env")
+  
+  # dplyr helpers neutralized
+  mockery::stub(run_covr_skip_stf, "dplyr::rename",            function(df, ...) df)
+  mockery::stub(run_covr_skip_stf, "dplyr::all_of",            function(x) x)
+  
+  # First summary -> sentinel, second summary -> arbitrary object
+  m_create_results_summary <- mockery::mock(res_sum_no_cov, res_sum_after_error)
+  mockery::stub(run_covr_skip_stf, "create_results_summary",   m_create_results_summary)
+  
+  # withr::with_dir evaluates the code argument
+  mockery::stub(run_covr_skip_stf, "withr::with_dir",          function(path, code) eval.parent(substitute(code)))
+  
+  # Force package_coverage to error, exercising the error handler path
+  mockery::stub(run_covr_skip_stf, "covr::package_coverage",   function(...) stop("boom"))
+  
+  # ---- Act & Assert ----
+  # We expect the failure message from the error handler to appear
+  testthat::expect_message(
+    run_covr_skip_stf(pkg_source_path = pkg_dir, test_pkg_data = NULL, cov_env = cov_env),
+    "package_coverage\\(\\) failed: boom",
+    perl = TRUE
+  )
+  
+  # create_results_summary must be called twice even on error
+  mockery::expect_called(m_create_results_summary, 2)
+  
+  # 1st call receives the env coverage result
+  mockery::expect_args(m_create_results_summary, 1, "cvr_env")
+  
+  # 2nd call receives NULL (from the error handler)
+  mockery::expect_args(m_create_results_summary, 2, NULL)
+})
+
+
+test_that("returns no-skip coverage result when all tests pass", {
+  # ------------------------------------------------------------------
+  # Fake mapping and summary objects
+  # ------------------------------------------------------------------
   fake_test_map <- data.frame(
     test = rep(c("two working tests", "three working tests"), each = 2),
     expectation = rep("expect_equal", 4),
@@ -230,7 +421,6 @@ test_that("fallback problem_tests is created when no failed/skipped/error tests"
     stringsAsFactors = FALSE
   )
   
-  # Mocked test_results_long structure (all PASS)
   fake_test_results_long <- data.frame(
     file    = rep("test-myscript1.R#L", 2),
     context = rep("myscript1", 2),
@@ -241,78 +431,141 @@ test_that("fallback problem_tests is created when no failed/skipped/error tests"
     stringsAsFactors = FALSE
   )
   
-  # Required stubs for input validation
-  mockery::stub(run_covr_skip_stf, "checkmate::assert_string", TRUE)
-  mockery::stub(run_covr_skip_stf, "checkmate::assert_directory_exists", TRUE)
-  mockery::stub(run_covr_skip_stf, "checkmate::assert_environment", TRUE)
-  mockery::stub(run_covr_skip_stf, "message", function(...) NULL)
-  mockery::stub(run_covr_skip_stf, "setwd", function(...) NULL)
-  
-  # Return a valid test path
-  mockery::stub(run_covr_skip_stf, "get_stf_test_path", function(...) "tests")
-  
-  # Mock testthat reporters
-  mockery::stub(run_covr_skip_stf, "create_fail_reporter", function(...) list())
-  mockery::stub(run_covr_skip_stf, "create_test_reporter",
-                function(test_path, pkg) {
-                  list(
-                    list(file="test-a.R", context="script1"),
-                    list(file="test-b.R", context="script2")
-                  )
-                })
-  
-  # IMPORTANT: bypass fix_test_context errors
-  mockery::stub(run_covr_skip_stf, "fix_test_context", function(x) x)
-  
-  # Provide map + long summary
-  mockery::stub(run_covr_skip_stf, "map_tests_stf", function(...) fake_test_map)
-  mockery::stub(run_covr_skip_stf, "get_tests_long_sum_stf", function(...) fake_test_results_long)
-  
-  # Corrected stub — now matches the actual call signature
-  mockery::stub(run_covr_skip_stf, "create_covr_list_no_skip",
-                function(test_map,
-                         test_results_long,
-                         pkg_source_path,
-                         pkg,
-                         cov_env) {
-                  
-                  list(
-                    total_cov = 0.5,
-                    res_cov = list(
-                      name     = pkg,
-                      coverage = list(filecoverage=fake_test_map, totalcoverage=50),
-                      errors   = NA,
-                      notes    = NA,
-                      passed   = 5,
-                      failed   = 0
-                    ),
-                    tests_skipped = list()
-                  )
-                })
-  
-  # Other stubs
-  mockery::stub(run_covr_skip_stf, "get_pkg_name", function(...) "mockpkg")
-  mockery::stub(run_covr_skip_stf, "unloadNamespace", function(...) NULL)
-  
+  # ------------------------------------------------------------------
+  # Real temporary package dir + cov_env
+  # ------------------------------------------------------------------
+  pkg_dir <- withr::local_tempdir()
   cov_env <- new.env(parent = emptyenv())
   
-  # Run the function
-  result <- run_covr_skip_stf(
-    pkg_source_path = tempdir(),
+  # Pull function from namespace so stubs attach correctly
+  rcs <- get("run_covr_skip_stf", envir = asNamespace("test.assessr"))
+  
+  # Capture what create_covr_list_no_skip() receives
+  seen_args <- NULL
+  
+  # ------------------------------------------------------------------
+  # Stubs
+  # ------------------------------------------------------------------
+  
+  # Package/test-path helpers
+  mockery::stub(rcs, "get_pkg_name", function(...) "mockpkg")
+  mockery::stub(rcs, "get_stf_test_path", function(...) "tests/testthat")
+  
+  # New setup path: return all fields run_covr_skip_stf may stash onto cov_env
+  mockery::stub(
+    rcs,
+    "setup_covr_env",
+    function(...) {
+      list(
+        cov_env = cov_env,
+        datasets_loaded = character(0),
+        base_r_datasets_loaded = character(0),
+        base_r_exports_loaded = character(0),
+        root_dir = pkg_dir,
+        initial_state = character(0),
+        helpers_loaded = character(0)
+      )
+    }
+  )
+  
+  # Reporters
+  mockery::stub(
+    rcs,
+    "create_fail_reporter",
+    function(...) {
+      list()
+    }
+  )
+  
+  mockery::stub(
+    rcs,
+    "create_test_reporter",
+    function(...) {
+      list(
+        list(file = "test-a.R", context = "script1"),
+        list(file = "test-b.R", context = "script2")
+      )
+    }
+  )
+  
+  # Downstream processing helpers
+  mockery::stub(rcs, "fix_test_context", function(x) x)
+  mockery::stub(rcs, "map_tests_stf", function(...) fake_test_map)
+  mockery::stub(rcs, "get_tests_long_sum_stf", function(...) fake_test_results_long)
+  
+  # Stub the no-skip coverage creator and capture inputs
+  mockery::stub(
+    rcs,
+    "create_covr_list_no_skip",
+    function(test_map,
+             test_results_long,
+             pkg_source_path,
+             pkg,
+             cov_env,
+             ...) {
+      
+      seen_args <<- list(
+        test_map = test_map,
+        test_results_long = test_results_long,
+        pkg_source_path = pkg_source_path,
+        pkg = pkg,
+        cov_env = cov_env
+      )
+      
+      list(
+        total_cov = 0.5,
+        res_cov = list(
+          name = pkg,
+          coverage = list(
+            filecoverage = c("test-myscript1.R" = 50),
+            totalcoverage = 50
+          ),
+          errors = NA,
+          notes = NA,
+          passed = 5,
+          failed = 0
+        ),
+        tests_skipped = list()
+      )
+    }
+  )
+  
+  mockery::stub(rcs, "unloadNamespace", function(...) NULL)
+  
+  # ------------------------------------------------------------------
+  # Run
+  # ------------------------------------------------------------------
+  result <- rcs(
+    pkg_source_path = pkg_dir,
     test_pkg_data   = NULL,
     cov_env         = cov_env
   )
   
-  # --- Assertions ---
+  # ------------------------------------------------------------------
+  # Assertions
+  # ------------------------------------------------------------------
   expect_true(is.list(result))
   expect_named(result, c("total_cov", "res_cov", "tests_skipped"))
+  
+  expect_equal(result$total_cov, 0.5)
+  expect_equal(result$res_cov$name, "mockpkg")
   expect_equal(result$res_cov$passed, 5)
   expect_equal(result$res_cov$failed, 0)
+  expect_identical(result$tests_skipped, list())
+  
+  # Ensure the no-skip builder got the expected inputs
+  expect_identical(seen_args$pkg_source_path, pkg_dir)
+  expect_identical(seen_args$pkg, "mockpkg")
+  expect_identical(seen_args$cov_env, cov_env)
+  
+  # Ensure setup metadata was stashed onto cov_env
+  expect_true(exists("datasets_loaded", envir = cov_env, inherits = FALSE))
+  expect_true(exists("root_dir", envir = cov_env, inherits = FALSE))
+  expect_true(exists("initial_state", envir = cov_env, inherits = FALSE))
+  expect_true(exists("helpers_loaded", envir = cov_env, inherits = FALSE))
+  
+  expect_identical(get("root_dir", envir = cov_env, inherits = FALSE), pkg_dir)
 })
-
-
-
-
 
 
 test_that("create_coverage_skip_stf runs coverage with datasets", {
@@ -379,9 +632,6 @@ test_that("create_coverage_skip_stf runs coverage with datasets", {
   expect_length(result, 1L)
   expect_true(all(c("srcref", "value") %in% names(result[[1]])))
 })
-
-
-
 
 
 test_that("create_results_summary returns correct structure and values", {
@@ -599,7 +849,7 @@ test_that("create_covr_list_no_skip falls back to package_coverage when no datas
                                      pkg_source_path, 
                                      pkg, 
                                      cov_env = cov_env
-                                     )
+  )
   
   # Assertions
   expect_type(result, "list")
@@ -607,7 +857,6 @@ test_that("create_covr_list_no_skip falls back to package_coverage when no datas
   expect_equal(result$res_cov$name, pkg)
   expect_equal(result$res_cov$coverage$totalcoverage, 85)
 })
-
 
 
 test_that("create_covr_list_no_skip handles NULL coverage", {
@@ -684,8 +933,6 @@ test_that("create_covr_list_no_skip handles NULL coverage", {
 })
 
 
-
-
 test_that("create_coverage_skip_stf reports no helpers when none exist", {
   pkg_name <- "mockpkg"
   pkg_dir  <- tempdir()
@@ -735,8 +982,6 @@ test_that("create_coverage_skip_stf reports no helpers when none exist", {
   # ---- Assertion ----
   expect_true(any(grepl("No helper files were loaded\\.", msgs)))
 })
-
-
 
 
 test_that("create_coverage_skip_stf reports loaded helpers when helpers exist", {
@@ -804,7 +1049,6 @@ test_that("create_coverage_skip_stf reports loaded helpers when helpers exist", 
   expect_true(any(grepl("helper1.R", msgs)))
   expect_true(any(grepl("helper2.R", msgs)))
 })
-
 
 
 test_that("create_test_reporter returns mocked test results", {
@@ -966,4 +1210,256 @@ test_that("create_fail_reporter handles test_dir errors gracefully", {
   
   # Assertions
   expect_null(result)
+})
+
+
+# ---- Helpers ----
+
+# Create a cov_env with optional bindings
+make_cov_env <- function(work_dir = NULL, helpers_loaded = character(0),
+                         initial_state = character(0), root_dir = NULL) {
+  e <- new.env(parent = emptyenv())
+  if (!is.null(work_dir)) e$work_dir <- work_dir
+  if (!is.null(helpers_loaded)) e$helpers_loaded <- helpers_loaded
+  if (!is.null(initial_state)) e$initial_state <- initial_state
+  if (!is.null(root_dir)) e$root_dir <- root_dir
+  e
+}
+
+# Create a minimal test fixture with one dummy test file
+make_test_fixture <- function() {
+  base <- tempfile("pkgsrc_")
+  dir.create(base, recursive = TRUE, showWarnings = FALSE)
+  testthat_dir <- file.path(base, "tests", "testthat")
+  dir.create(testthat_dir, recursive = TRUE, showWarnings = FALSE)
+  tf <- file.path(testthat_dir, "test-dummy.R")
+  writeLines("test_that('dummy', { expect_true(TRUE) })", tf)
+  list(base = base, testthat = testthat_dir, testfile = tf)
+}
+
+# Build a minimal `test_skip` with proper columns but no rows
+empty_test_skip <- function() {
+  data.frame(file = character(), line1 = integer(), line2 = integer())
+}
+
+# ---- Tests ----
+
+# 1) Missing cov_env$work_dir -> message + cleanup_and_return_null + invisible(NULL)
+testthat::test_that("missing work_dir -> message, cleanup, invisible NULL", {
+  cov_env <- make_cov_env(work_dir = NULL)  # No work_dir binding
+  fx <- create_coverage_skip_stf
+  cleanup_mock <- mockery::mock()
+  
+  # Stub the cleanup function used by early exit
+  mockery::stub(fx, "cleanup_and_return_null", cleanup_mock)
+  
+  fixture <- make_test_fixture()
+  test_skip <- empty_test_skip()
+  
+  testthat::expect_message(
+    testthat::expect_invisible({
+      res <- fx(
+        pkg_source_path = fixture$base,
+        pkg = "dummyPkg",
+        test_path = fixture$testthat,
+        test_skip = test_skip,
+        test_map = NULL,
+        cov_env = cov_env
+      )
+      testthat::expect_null(res)
+    }),
+    regexp = "Missing `cov_env\\$work_dir`.*Exiting create_coverage_skip_stf\\(\\) early\\.",
+    all = TRUE
+  )
+  
+  mockery::expect_called(cleanup_mock, 1)
+  mockery::expect_args(cleanup_mock, 1, env = cov_env)
+})
+
+# 2) Non-existent directory -> message + cleanup_and_return_null + invisible(NULL)
+testthat::test_that("non-existent work_dir -> message, cleanup, invisible NULL", {
+  nonexistent <- file.path(tempdir(), paste0("no_such_dir_", as.integer(Sys.time())))
+  cov_env <- make_cov_env(work_dir = nonexistent)
+  fx <- create_coverage_skip_stf
+  cleanup_mock <- mockery::mock()
+  
+  mockery::stub(fx, "cleanup_and_return_null", cleanup_mock)
+  
+  fixture <- make_test_fixture()
+  test_skip <- empty_test_skip()
+  
+  testthat::expect_message(
+    testthat::expect_invisible({
+      res <- fx(
+        pkg_source_path = fixture$base,
+        pkg = "dummyPkg",
+        test_path = fixture$testthat,
+        test_skip = test_skip,
+        test_map = NULL,
+        cov_env = cov_env
+      )
+      testthat::expect_null(res)
+    }),
+    regexp = "`cov_env\\$work_dir` does not exist on disk: .*Exiting create_coverage_skip_stf\\(\\) early\\.",
+    all = TRUE
+  )
+  
+  mockery::expect_called(cleanup_mock, 1)
+  mockery::expect_args(cleanup_mock, 1, env = cov_env)
+})
+
+# 3) Empty-string work_dir -> checkmate assert_string fails
+testthat::test_that("empty-string work_dir -> assert_string(min.chars=1) error", {
+  cov_env <- make_cov_env(work_dir = "")
+  fx <- create_coverage_skip_stf
+  
+  fixture <- make_test_fixture()
+  test_skip <- empty_test_skip()
+  
+  testthat::expect_error(
+    fx(
+      pkg_source_path = fixture$base,
+      pkg = "dummyPkg",
+      test_path = fixture$testthat,
+      test_skip = test_skip,
+      test_map = NULL,
+      cov_env = cov_env
+    ),
+    regexp = "cov_env\\$work_dir"
+  )
+})
+
+# 4) Non-writable work_dir -> error from writability check
+testthat::test_that("non-writable work_dir -> error", {
+  work_dir <- tempfile("work_")
+  dir.create(work_dir, recursive = TRUE, showWarnings = FALSE)
+  # Try to remove write permission; if we can't, skip the test
+  old_mode <- suppressWarnings(file.info(work_dir)$mode)
+  suppressWarnings(Sys.chmod(work_dir, mode = "0555"))  # read & execute only
+  on.exit({
+    suppressWarnings(Sys.chmod(work_dir, mode = "0755"))
+    unlink(work_dir, recursive = TRUE, force = TRUE)
+  }, add = TRUE)
+  
+  # If system still considers it writable, skip (platform-dependent)
+  if (file.access(work_dir, 2) == 0) {
+    testthat::skip("Could not make directory non-writable on this platform; skipping.")
+  }
+  
+  cov_env <- make_cov_env(work_dir = work_dir)
+  fx <- create_coverage_skip_stf
+  
+  fixture <- make_test_fixture()
+  test_skip <- empty_test_skip()
+  
+  testthat::expect_error(
+    fx(
+      pkg_source_path = fixture$base,
+      pkg = "dummyPkg",
+      test_path = fixture$testthat,
+      test_skip = test_skip,
+      test_map = NULL,
+      cov_env = cov_env
+    ),
+    regexp = "`cov_env\\$work_dir` is not writable"
+  )
+})
+
+# 5) work_dir not under tempdir() -> warns but proceeds (stub heavy calls)
+testthat::test_that("work_dir outside tempdir -> warns but proceeds", {
+  work_dir <- tempfile("work_")
+  dir.create(work_dir, recursive = TRUE, showWarnings = FALSE)
+  
+  cov_env <- make_cov_env(work_dir = work_dir)
+  fixture <- make_test_fixture()
+  test_skip <- empty_test_skip()
+  
+  fx <- create_coverage_skip_stf
+  
+  # Force tempdir() to be a different root to trigger the warning
+  mockery::stub(fx, "tempdir", function() file.path(base::tempdir(), "different_root"))
+  
+  # Stub heavy/external calls and no-ops for cleanup to keep test fast & deterministic
+  mockery::stub(fx, "covr::environment_coverage", function(env, test_files) list())
+  mockery::stub(fx, "remove_new_globals", function(env, initial_state) invisible(NULL))
+  mockery::stub(fx, "cleanup_and_return_null", function(env) invisible(NULL))
+  
+  testthat::expect_warning(
+    {
+      res <- fx(
+        pkg_source_path = fixture$base,
+        pkg = "dummyPkg",
+        test_path = fixture$testthat,
+        test_skip = test_skip,
+        test_map = NULL,
+        cov_env = cov_env
+      )
+      testthat::expect_type(res, "list")
+    },
+    regexp = "`cov_env\\$work_dir` .* is not located under tempdir\\("
+  )
+})
+
+
+testthat::test_that("TRUE when sentinel has dimnames == 'no_coverage.R'", {
+  # 1x1 NA with row dimname "no_coverage.R"
+  fc <- structure(NA_real_, .Dim = 1L, .Dimnames = list("no_coverage.R"))
+  cov <- list(res_cov = list(coverage = list(filecoverage = fc)))
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_true(out)
+})
+
+testthat::test_that("TRUE when sentinel found via names() fallback and dimnames() is stubbed to NULL", {
+  # 1x1 NA with *names* set (no dimnames)
+  fc <- structure(NA_real_, .Dim = 1L)
+  names(fc) <- "no_coverage.R"
+  cov <- list(res_cov = list(coverage = list(filecoverage = fc)))
+  
+  # Force the code path where dimnames(fc) is NULL, so names() is used
+  mockery::stub(is_no_coverage_cov, "dimnames", function(x) NULL)
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_true(out)
+})
+
+testthat::test_that("FALSE when length != 1 even if 'no_coverage.R' present", {
+  # Two NAs — not the sentinel even if a name matches
+  fc <- c(NA_real_, NA_real_)
+  names(fc) <- c("no_coverage.R", "something_else.R")
+  cov <- list(res_cov = list(coverage = list(filecoverage = fc)))
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_false(out)
+})
+
+testthat::test_that("FALSE when lone NA but filename is not 'no_coverage.R'", {
+  fc <- structure(NA_real_, .Dim = 1L, .Dimnames = list("different_file.R"))
+  cov <- list(res_cov = list(coverage = list(filecoverage = fc)))
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_false(out)
+})
+
+testthat::test_that("FALSE when filecoverage retrieval fails (tryCatch path -> NULL)", {
+  # Any cov will do; we stub tryCatch so the retrieval returns NULL
+  cov <- list(res_cov = list(coverage = list(filecoverage = "will_not_be_used")))
+  
+  # Make the internal tryCatch call return NULL
+  mockery::stub(is_no_coverage_cov, "tryCatch", NULL)
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_false(out)
+})
+
+testthat::test_that("FALSE when filecoverage has no names or dimnames", {
+  fc <- structure(NA_real_, .Dim = 1L)  # no dimnames
+  # no names(fc) either
+  cov <- list(res_cov = list(coverage = list(filecoverage = fc)))
+  
+  # Ensure dimnames returns NULL so the code checks names() next
+  mockery::stub(is_no_coverage_cov, "dimnames", function(x) NULL)
+  
+  out <- is_no_coverage_cov(cov)
+  testthat::expect_false(out)
 })

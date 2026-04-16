@@ -4,10 +4,13 @@
 \alias{generate_test_details}
 \title{Generate Test Details}
 \usage{
-generate_test_details(assessment_results)
+generate_test_details(assessment_results, framework_id = NULL)
 }
 \arguments{
 \item{assessment_results}{- input data}
+
+\item{framework_id}{Optional character; when provided (multi-framework), the
+"Testing Framework" row shows this framework name.}
 }
 \description{
 Generates the Test Details table for the HTML report.

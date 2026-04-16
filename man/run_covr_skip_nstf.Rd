@@ -4,7 +4,7 @@
 \alias{run_covr_skip_nstf}
 \title{Run Coverage Analysis on Package Source and Non‑Standard Tests (NSTF)}
 \usage{
-run_covr_skip_nstf(pkg_source_path, test_pkg_data, cov_env)
+run_covr_skip_nstf(pkg_source_path, test_pkg_data, cov_env, framework = NULL)
 }
 \arguments{
 \item{pkg_source_path}{Character. Path to the root of the package source
@@ -16,6 +16,11 @@ Bioconductor tests) and the presence of snapshots or related artifacts.}
 
 \item{cov_env}{Environment that holds the temporary coverage workspace and
 shared state for the run.}
+
+\item{framework}{Optional character. When provided (e.g. from
+\code{run_one_framework}), restricts test paths to the framework-specific
+directory. Use when a package has multiple frameworks (e.g. testthat + testit)
+to avoid mixing paths across frameworks.}
 }
 \value{
 A named list containing coverage results and diagnostics:
@@ -52,10 +57,13 @@ that downstream reporting remains consistent across frameworks.
 }
 \seealso{
 Other nstf_utility: 
-\code{\link{check_covr_skip_nstf}()},
 \code{\link{check_covr_skip_testit}()},
+\code{\link{create_base_tests_coverage}()},
+\code{\link{create_nstf_covr_list}()},
+\code{\link{create_tinytest_coverage}()},
 \code{\link{get_nstf_test_path}()},
-\code{\link{get_source_test_mapping_nstf}()}
+\code{\link{get_source_test_mapping_nstf}()},
+\code{\link{restrict_test_paths_to_framework}()}
 }
 \concept{nstf_utility}
 \keyword{internal}

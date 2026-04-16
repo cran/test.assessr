@@ -47,22 +47,31 @@ test_that("works when both testthat and _snaps exist with files", {
 })
 
 
-test_that("works when testthat exists but _snaps does not", {
-  pkg_dir <- tempfile("dummyPkg2")
+test_that("works when both tinytest and _snaps exist with files", {
+  pkg_dir <- tempfile("dummyPkg1")
   dir.create(pkg_dir)
   
-  testthat_dir <- file.path(pkg_dir, "tests", "testthat")
-  dir.create(testthat_dir, recursive = TRUE)
+  # tinytest (canonical): inst/tinytest with at least one test file
+  tiny_dir <- file.path(pkg_dir, "inst", "tinytest")
+  dir.create(tiny_dir, recursive = TRUE)
+  writeLines("expect_true(TRUE)", file.path(tiny_dir, "test_basic.R"))
+  
+  # testthat snapshots live in tests/testthat/_snaps
+  snaps_dir <- file.path(pkg_dir, "tests", "testthat", "_snaps")
+  dir.create(snaps_dir, recursive = TRUE)
+  file.create(file.path(snaps_dir, "snapshot1.md"))
+  file.create(file.path(snaps_dir, "snapshot2.md"))
   
   result <- check_pkg_tests_and_snaps(pkg_dir)
   
-  expect_true(result$has_testthat)
-  expect_false(result$has_testit)  
-  expect_false(result$has_snaps)
-  expect_equal(result$n_golden_tests, 0)
+  expect_true(result$has_tinytest)
+  expect_equal(result$n_golden_tests, 2)     # presence of .md alone shouldn't bump this
+  expect_true(result$has_snaps)              # optional but consistent with the test title
+  expect_gt(result$n_tinytest_files, 0)      # optional: verifies tinytest detection
   
   unlink(pkg_dir, recursive = TRUE)
 })
+
 
 
 test_that("works when neither testthat nor _snaps exist", {

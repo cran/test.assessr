@@ -48,15 +48,15 @@
 #' unskipped tests. If no valid STF test directory is found, an empty coverage
 #' object is returned via \code{create_empty_covr_list()}.
 #'
-#'
 #' @rdname run_covr_skip_stf  
 #' @family stf_utility
 #' @keywords internal
-run_covr_skip_stf <- function(pkg_source_path,
-                              test_pkg_data,
-                              cov_env) {
+run_covr_skip_stf <- function(pkg_source_path, 
+                              test_pkg_data, 
+                              cov_env
+                              ) {
   
-  # --- Input checking ---
+  # Input checking
   checkmate::assert_string(pkg_source_path)
   checkmate::assert_directory_exists(pkg_source_path)
   
@@ -66,10 +66,9 @@ run_covr_skip_stf <- function(pkg_source_path,
   # Ensure it is an environment
   checkmate::assert_environment(cov_env, .var.name = "cov_env")
   
-  
-  path    <- as.character(pkg_source_path)
+  path <- as.character(pkg_source_path)
   testdir <- file.path(path, "tests")
-  pkg     <- get_pkg_name(pkg_source_path)
+  pkg <- get_pkg_name(pkg_source_path)
   
   test_path <- get_stf_test_path(test_pkg_data, testdir)
   
@@ -96,21 +95,22 @@ run_covr_skip_stf <- function(pkg_source_path,
   cov_env$initial_state   <- covr_setup$initial_state
   cov_env$helpers_loaded  <- covr_setup$helpers_loaded
   
-  message(paste0("Creating Default test reporter for ", pkg))
+  message(paste0("Starting reporter process for ", pkg))
   testthat::set_max_fails(Inf)
   
   # unload target package
   try(unloadNamespace(pkg), silent = TRUE)
   
   # create fail reporter
-  create_fail_reporter(test_path, pkg)
+  create_fail_reporter(test_path, pkg, cov_env)
   
   # create default reporter
-  test_results <- create_test_reporter(test_path, pkg)
+  test_results <- create_test_reporter(test_path, pkg, cov_env)
+  
   if (is.null(test_results)) {
     return(create_empty_covr_list(pkg, "Default reporter execution failed"))
   } else {
-    # update context column
+    # update context column 
     test_results <- fix_test_context(test_results)
   }
   
@@ -122,13 +122,14 @@ run_covr_skip_stf <- function(pkg_source_path,
     message(paste0("Error mapping tests for ", pkg, " : ", e$message))
     return(NULL)
   })
-  
+ 
   if (is.null(test_map)) {
     message(paste0("Test map could not be created for ", pkg))
     return(create_empty_covr_list(pkg, "Test map creation failed"))
   }
   
   test_results_long <- get_tests_long_sum_stf(test_results)
+  
   if (is.null(test_results_long)) {
     message(paste0("Unable to create skipped tests for :", pkg))
     return(create_empty_covr_list(pkg, "Skipped tests map creation failed"))
@@ -168,16 +169,31 @@ run_covr_skip_stf <- function(pkg_source_path,
     message(paste0("Creating test coverage for ", pkg))
     res_sum <- create_results_summary(cvr)
     
+    # check if test coverage result exist
+    no_cov_check <- is_no_coverage_cov(res_sum)
+    
+    if (no_cov_check) {
+      message("Detected 'no_coverage.R' sentinel. Falling back to covr::package_coverage(type = 'tests').")
+      cvr <- tryCatch({
+        withr::with_dir(pkg_source_path, covr::package_coverage(path = pkg_source_path, type = "tests", quiet = TRUE))
+      }, error = function(e) {
+        message("package_coverage() failed: ", conditionMessage(e))
+        NULL
+      })
+      res_sum <- create_results_summary(cvr)
+    }
+    
+    
     covr_list <- list(
       total_cov = res_sum$total_cov,
       res_cov = list(
-        name     = res_sum$res_cov$name,
+        name = res_sum$res_cov$name,
         coverage = res_sum$res_cov$coverage,
-        errors   = res_sum$res_cov$errors,
-        notes    = res_sum$res_cov$notes
+        errors = res_sum$res_cov$errors,
+        notes = res_sum$res_cov$notes
       ),
       long_summary = test_results_long,
-      test_skip    = test_skip
+      test_skip = test_skip
     )
   } else {
     message(paste0("Creating test results for no skipped tests for ", pkg))
@@ -194,17 +210,17 @@ run_covr_skip_stf <- function(pkg_source_path,
 }
 
 
-
 #' @title Create Test Reporter
 #' @description Executes all tests in a given directory using `testthat::test_dir()`
 #' and applies context fixes to ensure each test has a valid context.
 #'
 #' @param test_path Character string specifying the path to the test directory.
 #' @param pkg Character string specifying the package name.
+#' @param cov_env environment covr environment.
 #'
 #' @return A list of test results with corrected contexts, or `NULL` if an error occurs.
 #' @keywords internal
-create_test_reporter <- function(test_path, pkg) {
+create_test_reporter <- function(test_path, pkg, cov_env) {
   
   message(paste0("Creating test reporter for: ", pkg))
   test_results <- tryCatch({
@@ -212,6 +228,7 @@ create_test_reporter <- function(test_path, pkg) {
     res <- testthat::test_dir(
       path = test_path,
       reporter = testthat::default_reporter(),
+      env = cov_env,
       stop_on_failure = FALSE,
       stop_on_warning = FALSE,
       package = pkg,
@@ -232,11 +249,12 @@ create_test_reporter <- function(test_path, pkg) {
 #'
 #' @param test_path Character string specifying the path to the test directory.
 #' @param pkg Character string specifying the package name.
+#' @param cov_env environment convr environment.
 #'
 #' @return A list of test results with corrected contexts, or `NULL` if an error occurs.
 #' @keywords internal
-create_fail_reporter <- function(test_path, pkg) {
-  message("Creating  reporter for: ", pkg)
+create_fail_reporter <- function(test_path, pkg, cov_env) {
+  message("Creating failing tests reporter for: ", pkg)
   
   rep <- testthat::FailReporter$new()
   
@@ -244,6 +262,7 @@ create_fail_reporter <- function(test_path, pkg) {
     testthat::test_dir(
       path = test_path,
       reporter = rep,
+      env = cov_env,
       stop_on_failure = FALSE,
       stop_on_warning  = FALSE,
       package = pkg,
@@ -260,28 +279,13 @@ create_fail_reporter <- function(test_path, pkg) {
 }
 
 
-
-#' Ensure Test Results Have Valid Context Labels
+#' @title Fix Missing Test Contexts
+#' @description Ensures that each test result has a valid `context` field.
+#' If missing or empty, the context is set to the file name (without extension).
 #'
-#' This function normalizes the `context` field in testthat test results.
-#' Some test result objects may have missing, empty, or `NA` context values.
-#' This helper function assigns a meaningful context by using the associated
-#' file name (excluding the `.R` extension) whenever the original context
-#' is unavailable.
+#' @param test_results A list of test result objects from `testthat`.
 #'
-#' @param test_results A list of test result objects produced by testthat
-#'   execution functions (e.g., `testthat::test_dir()` or internal STF
-#'   reporter helpers). Each element should contain a `context` field.
-#'
-#' @return 
-#' A list of test result objects where all entries have a non-empty `context`
-#' value. If a test result originally lacked a valid context, its context is
-#' replaced by the corresponding test file name. The structure of each test
-#' result object is otherwise unchanged.
-#'
-#' This output is used by downstream functions that rely on context labels
-#' for grouping, mapping, or summarizing test outcomes.
-#'
+#' @return A list of test results with updated contexts.
 #' @keywords internal
 fix_test_context <- function(test_results) {
   lapply(test_results, function(x) {
@@ -292,6 +296,7 @@ fix_test_context <- function(test_results) {
     x
   })
 }
+
 
 #' Run Coverage While Skipping Failing Tests
 #'
@@ -357,6 +362,7 @@ create_coverage_skip_stf <- function(
     test_map,
     cov_env
 ) {
+  
   message(paste0("Setting up coverage environment for : ", pkg))
   
   # --- Assertions (checkmate) ---
@@ -365,6 +371,52 @@ create_coverage_skip_stf <- function(
   checkmate::assert_directory_exists(test_path, .var.name = "test_path")
   checkmate::assert_true(!missing(cov_env), .var.name = "cov_env")
   checkmate::assert_environment(cov_env,     .var.name = "cov_env")
+  
+  # --- Assertions: Validate cov_env$work_dir early and explicitly ---
+  if (!base::exists("work_dir", envir = cov_env, inherits = FALSE)) {
+    message(
+      "Missing `cov_env$work_dir`. Please set a working directory in `cov_env` ",
+      "that already exists and is writable (ideally a subdirectory of tempdir()). ",
+      "Exiting create_coverage_skip_stf() early."
+    )
+    cleanup_and_return_null(env = cov_env)
+    return(invisible(NULL))
+  }
+  work_dir <- base::get("work_dir", envir = cov_env, inherits = FALSE)
+  checkmate::assert_string(work_dir, min.chars = 1, .var.name = "cov_env$work_dir")
+  
+  # Must exist on disk -> message + cleanup + early return (per request)
+  if (!dir.exists(work_dir)) {
+    message(
+      "`cov_env$work_dir` does not exist on disk: ", work_dir,
+      ". Exiting create_coverage_skip_stf() early."
+    )
+    cleanup_and_return_null(env = cov_env)
+    return(invisible(NULL))
+  }
+  
+  # Must be writable
+  wd_norm <- normalizePath(work_dir, winslash = "/", mustWork = FALSE)
+  if (base::file.access(wd_norm, 2) != 0) {
+    stop("`cov_env$work_dir` is not writable: ", wd_norm)
+  }
+  
+  # Prefer (but don't require) location under tempdir(), warn if not
+  td_norm <- normalizePath(tempdir(), winslash = "/", mustWork = FALSE)
+  starts_with_dir <- function(path, prefix) {
+    path <- sub("/+$", "", path)
+    prefix <- sub("/+$", "", prefix)
+    identical(path, prefix) || startsWith(paste0(path, "/"), paste0(prefix, "/"))
+  }
+  if (!starts_with_dir(wd_norm, td_norm)) {
+    warning(
+      "`cov_env$work_dir` (", wd_norm, 
+      ") is not located under tempdir() (", td_norm, "). ",
+      "For CRAN-safety and to avoid side effects, consider using a subdirectory of tempdir()."
+    )
+  }
+  # --- END assertion block ---
+  
   
   # Pull optional metadata from cov_env if available
   helpers_loaded <- if (base::exists("helpers_loaded", envir = cov_env, inherits = FALSE))
@@ -384,10 +436,13 @@ create_coverage_skip_stf <- function(
     cleanup_and_return_null(env = cov_env)
   }, add = TRUE)
   
-  # Report loaded helpers (if any)
+  
+  # Report loaded helpers
   if (length(helpers_loaded) > 0) {
     message("Helper files loaded:")
-    for (helper in helpers_loaded) message("  - ", helper)
+    for (helper in helpers_loaded) {
+      message("  - ", helper)
+    }
   } else {
     message("No helper files were loaded.")
   }
@@ -396,7 +451,24 @@ create_coverage_skip_stf <- function(
   message(paste0("Identifying test lines to skip for : ", pkg))
   test_skip_lines <- lapply(
     split(test_skip, test_skip$file),
-    function(x) unlist(mapply(seq, from = x$line1, to = x$line2, SIMPLIFY = FALSE))
+    function(x) {
+      # keep only rows with valid finite line numbers
+      ok <- is.finite(x$line1) & is.finite(x$line2)
+      
+      if (!any(ok)) {
+        return(integer(0))
+      }
+      
+      unlist(
+        mapply(
+          seq,
+          from = x$line1[ok],
+          to   = x$line2[ok],
+          SIMPLIFY = FALSE
+        ),
+        use.names = FALSE
+      )
+    }
   )
   
   # -------------------------------------------------------------------
@@ -444,12 +516,12 @@ create_coverage_skip_stf <- function(
     test_files <- vapply(all_tests, copy_to_tmp, character(1))
   }
   
-  # Run coverage (from root_dir if available)
+  # Run coverage
   message(paste0("Running environment coverage for ", pkg))
   cvr <- tryCatch({
     withr::with_dir(root_dir, {
       cov <- covr::environment_coverage(env = cov_env, test_files = test_files)
-      # Clean problematic entries (avoid devtools vapply bug)
+      # clean problematic entries (avoid devtools vapply bug)
       cov <- Filter(function(x) length(c(x$srcref, x$value)) == 9, cov)
       cov
     })
@@ -457,12 +529,18 @@ create_coverage_skip_stf <- function(
     NULL
   })
   
-  # Clean up newly introduced globals (relative to the initial state)
+  
+  # Clean up newly introduced globals
   message(paste0("Removing new globals from environment for ", pkg))
   remove_new_globals(env = cov_env, initial_state = initial_cov_env_state)
   
+  # Final cleanup
+  
+  # cleanup_and_return_null(env = cov_env)
+  
   return(cvr)
 }
+
 
 
 #' Create a Summary of Coverage Results
@@ -585,7 +663,8 @@ create_covr_list_no_skip <- function(test_map,
                                      test_results_long, 
                                      pkg_source_path, 
                                      pkg,
-                                     cov_env) {
+                                     cov_env
+                                     ) {
   
   # --- Input checks ---
   checkmate::assert_string(pkg_source_path, .var.name = "pkg_source_path")
@@ -596,7 +675,10 @@ create_covr_list_no_skip <- function(test_map,
   # Attempt to unload package safely
   safe_unload_package(pkg)
   
-  # Load package into the provided coverage environment
+  # Create environment for coverage
+  cov_env <- new.env(parent = globalenv())
+  
+  # Load package into cov_env
   load_package_into_env(pkg_source_path, pkg, cov_env)
   
   # Detect datasets used in test files
@@ -609,11 +691,13 @@ create_covr_list_no_skip <- function(test_map,
     is.character(f) && length(f) == 1 && file.exists(f)
   }, test_files)
   
+  
   used_datasets <- unique(unlist(lapply(valid_test_files, function(file) {
-    lines   <- readLines(file, warn = FALSE)
+    lines <- readLines(file, warn = FALSE)
     matches <- grep(paste(available_datasets, collapse = "|"), lines, value = TRUE)
     regmatches(matches, gregexpr(paste(available_datasets, collapse = "|"), matches))
   })))
+  
   
   # Flatten and clean dataset names
   used_datasets <- unique(unlist(used_datasets))
@@ -664,13 +748,13 @@ create_covr_list_no_skip <- function(test_map,
   
   if (!is.null(coverage)) {
     # Extract coverage list
-    coverage_list  <- covr::coverage_to_list(coverage)
-    filecoverage   <- coverage_list$filecoverage
-    totalcoverage  <- coverage_list$totalcoverage
+    coverage_list <- covr::coverage_to_list(coverage)
+    filecoverage <- coverage_list$filecoverage
+    totalcoverage <- coverage_list$totalcoverage
     
-    total_passed   <- sum(sapply(test_results_long, function(entry) entry$passed))
-    total_failed   <- sum(sapply(test_results_long, function(entry) entry$failed))
-    tests_skipped  <- Filter(function(entry) entry$skipped > 0, test_results_long)
+    total_passed <- sum(sapply(test_results_long, function(entry) entry$passed))
+    total_failed <- sum(sapply(test_results_long, function(entry) entry$failed))
+    tests_skipped <- Filter(function(entry) entry$skipped > 0, test_results_long)
     
     res_cov <- list(
       name = pkg,
@@ -686,32 +770,32 @@ create_covr_list_no_skip <- function(test_map,
     
     total_cov <- if (!is.na(totalcoverage)) totalcoverage / 100 else NA_real_
     
+    
     covr_list <- list(
       total_cov = total_cov,
       res_cov = res_cov,
       tests_skipped = tests_skipped
     )
-  } else {
-    message("No test coverage for this configuration")
-    covr_list <- list(
-      total_cov = 0,
-      res_cov = list(
-        name = pkg,
-        coverage = list(
-          filecoverage = matrix(0, nrow = 1, dimnames = list("No functions tested")),
-          totalcoverage = 0
-        ),
-        errors = "No testthat or testit configuration",
-        notes = NA
+   } else {
+      message("No test coverage for this configuration")
+      covr_list <- list(
+        total_cov = 0,
+        res_cov = list(
+          name = pkg,
+          coverage = list(
+            filecoverage = matrix(0, nrow = 1, dimnames = list("No functions tested")),
+            totalcoverage = 0
+          ),
+          errors = "No testthat or testit configuration",
+          notes = NA
+        )
       )
-    )
-  }
-  
+    } 
+    
   cleanup_and_return_null(env = cov_env)
   
   return(covr_list)
 }
-
 
 #' Determine the appropriate standard test path for a package
 #'
@@ -739,4 +823,60 @@ get_stf_test_path <- function(test_pkg_data, testdir) {
   }
   
   return(NULL)
+}
+
+
+#' Detect covr's "no_coverage" sentinel
+#'
+#' @description
+#' `is_no_coverage_cov()` returns `TRUE` when a covr coverage object contains
+#' the special **no coverage** sentinel—i.e., a 1×1 `NA` `filecoverage` whose
+#' sole filename (row name) is `"no_coverage.R"`. This commonly indicates that
+#' instrumentation ran but no executable lines were attributed to the target, or
+#' that the target test files did not exercise any package code.
+#'
+#' @details
+#' The function is defensive across covr versions/shapes:
+#' - It looks for `cov$coverage$filecoverage`, returning `FALSE` if missing.
+#' - It accepts file names from either `dimnames(filecoverage)[[1]]` or
+#'   `names(filecoverage)`.
+#' - It positively identifies the sentinel *only* when **both** conditions hold:
+#'   (1) the coverage array is length 1 and `NA`, and (2) the associated filename
+#'   is `"no_coverage.R"`.
+#'
+#' @param cov A coverage object returned by `covr::environment_coverage()`,
+#'   `covr::package_coverage()`, or a list-like object that exposes
+#'   `$coverage$filecoverage`.
+#'
+#' @return A single `logical`: `TRUE` if the object represents “no coverage”,
+#'   otherwise `FALSE`.
+#' 
+#' @keywords internal
+#' @noRd
+is_no_coverage_cov <- function(cov) {
+  # Try to retrieve the filecoverage array safely
+  
+  fc <- tryCatch(cov$res_cov$coverage$filecoverage, error = function(e) NULL)
+  if (!is.null(fc)) {
+    # Derive file labels from dimnames (prefer) or names (fallback)
+    dn <- dimnames(fc)
+    files <- if (!is.null(dn) && length(dn) >= 1L && !is.null(dn[[1L]])) {
+      dn[[1L]]
+    } else {
+      names(fc)
+    }
+  
+    # Check for the precise sentinel shape and label
+    is_len1_na <- (length(fc) == 1L) && is.na(fc[[1L]])
+    has_no_cov_name <- isTRUE(length(files) >= 1L) && any(files %in% "no_coverage.R")
+    
+    if (!is.null(fc) && is_len1_na && has_no_cov_name) {
+      no_cov_check <- TRUE
+    } else {
+      no_cov_check <- FALSE
+    }  
+  } else {
+    no_cov_check <- FALSE
+  }
+  return(no_cov_check)
 }

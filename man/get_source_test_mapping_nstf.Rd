@@ -7,44 +7,29 @@
 get_source_test_mapping_nstf(pkg_source_path, test_dir)
 }
 \arguments{
-\item{pkg_source_path}{Character string. Path to the root directory of the
-package source.}
+\item{pkg_source_path}{Character string. Path to the root of the package source directory.}
 
-\item{test_dir}{Character string. Path to the directory containing test files
-(typically `"tests/"`, `"tests/testthat/"`, or `"tests/testit/"`).}
+\item{test_dir}{character string. directory where tests are}
 }
 \value{
-A base R `data.frame` containing two columns:
-
-* **source_file** — Name of the `.R` file found in the `R/` directory  
-* **test_file** — Name of the matched test file from `test_dir`, or `NA`
-  if no matching file is found  
-
-The mapping shows which source files have corresponding tests and which do not,
-enabling automated checks for test completeness in NSTF pipelines.
+A data frame with two columns:
+\describe{
+  \item{source_file}{Name of the source file in the `R/` directory.}
+  \item{test_file}{Name of the matched test file in the `tests/` directory, or \code{NA} if no match is found.}
+}
 }
 \description{
-This internal NSTF utility scans the package's `R/` directory and the
-specified test directory and attempts to match each source file with a
-corresponding test file. Matching is based on filename similarity between
-source files and test files (case-insensitive, substring matching).
+This internal helper function scans the `R/` and `tests/` directories of a package
+and attempts to match each source file with a corresponding test file based on filename similarity.
 }
-\details{
-The function is intended for lightweight structural checks in NSTF workflows
-and does not interpret test contents.
-}
-\section{Output Meaning}{
-
-A row with `test_file = NA` indicates that no test file appears to match the
-given source file. The returned data frame is solely a structural mapping;
-no tests are run, and no side effects occur.
-}
-
 \seealso{
 Other nstf_utility: 
-\code{\link{check_covr_skip_nstf}()},
 \code{\link{check_covr_skip_testit}()},
+\code{\link{create_base_tests_coverage}()},
+\code{\link{create_nstf_covr_list}()},
+\code{\link{create_tinytest_coverage}()},
 \code{\link{get_nstf_test_path}()},
+\code{\link{restrict_test_paths_to_framework}()},
 \code{\link{run_covr_skip_nstf}()}
 }
 \concept{nstf_utility}

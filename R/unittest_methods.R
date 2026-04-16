@@ -1,76 +1,86 @@
-
-#' Check for Testing Infrastructure and Snapshot Files
+#' Check for tests/testthat and _snaps folder and count golden tests
 #'
-#' This function inspects an R package source tree and detects the presence
-#' of common testing frameworks (`testthat`, `testit`, base R tests,
-#' BioGenerics/Bioconductor-style tests) as well as snapshot files used
-#' for golden testing.
+#' @param pkg_source_path Path to the root of the package source
 #'
-#' @param pkg_source_path Character. Path to the root of the package source.
-#'
-#' @return 
-#' A list containing logical indicators and file counts describing the
-#' test configuration of the package. The list includes:
-#' \describe{
-#'   \item{has_testthat}{Logical. Whether `tests/testthat/` exists.}
-#'   \item{has_testit}{Logical. Whether `tests/testit/` exists.}
-#'   \item{has_tests_base}{Logical. Whether base R test files exist in `tests/`.}
-#'   \item{has_BioG_test}{Logical. Whether BioGenerics-style tests exist in `inst/tests/`.}
-#'   \item{bioc_unit_tests_dir}{Character. Path to BioGenerics unit test directory (if any).}
-#'   \item{bioc_run_ut_path}{Character. Path to BioGenerics `run_unitTests.R` (if any).}
-#'   \item{has_snaps}{Logical. Whether `_snaps/` exists inside `tests/testthat/`.}
-#'   \item{n_golden_tests}{Integer. Number of snapshot test files inside `_snaps/`.}
-#'   \item{n_test_files}{Integer. Number of `test-*.R` files in `tests/testthat/`.}
-#' }
-#'
-#' This function always returns a value. It does **not** perform side effects
-#' other than reading the package directory structure.
-#'
-#' @examples
-#' \donttest{
-#' # Adjust CRAN repo (example only)
-#' r <- getOption("repos")
-#' r["CRAN"] <- "http://cran.us.r-project.org"
-#' old <- options(repos = r)
-#'
-#' # Example package contained in test.assessr
-#' dp <- system.file(
-#'   "test-data",
-#'   "test.package.0001_0.1.0.tar.gz",
-#'   package = "test.assessr"
-#' )
-#'
-#' # Set up package
-#' install_list <- set_up_pkg(dp)
-#' pkg_source_path <- install_list$pkg_source_path
-#'
-#' # Install package locally (ensures correct test paths)
-#' install_package_local(pkg_source_path)
-#'
-#' # Detect tests and snapshots
-#' test_pkg_data <- check_pkg_tests_and_snaps(pkg_source_path)
-#'
-#' # Restore options
-#' options(old)
-#' }
-#'
-#' @export
+#' @return A list with:
+#'   - `has_testthat`: Does tests/testthat exist?
+#'   - `has_testit`: Does tests/testit exist?
+#'   - `has_tests_base`: Do tests exist in tests subdirectory?
+#'   - `has_BioG_test`: Do BioGenerics tests exist in inst/tests subdirectory?
+#'   - `has_RUnit_test`: Do RUnit tests exist (inst/unitTests; optionally tests/run_unitTests.R)?
+#'   - `bioc_unit_tests_dir` : location of BioGenerics unit tests
+#'   - `bioc_run_ut_path`: location of BioGenerics `run_unitTests.R`
+#'   - `has_snaps`: Does _snaps exist inside tests/testthat?
+#'   - `n_golden_tests`: Number of snapshot files inside _snaps
+#'   - `n_test_files`: Number of test-*.R files inside tests/testthat
+#'   - `has_tinytest` : Does tinytest exist? 
+#'   - `tinytest_dir` : location of tinytest  unit tests
+#'   - `tinytest_runner_paths` : location of tinytest runner paths
+#'   - `n_tinytest_files` :  Number of test_*.R files under inst/tinytest  
+#'   - `has_data_table_tests`: Do data.table tests exist in directories?
+#'   - `data_table_tests_path` : location of data.table unit tests
+#' @keywords internal
 check_pkg_tests_and_snaps <- function(pkg_source_path) {
   
   message("checking package test config")
-  test_dir <- file.path(pkg_source_path, "tests")
-  testthat_path <- file.path(test_dir, "testthat")
-  snaps_path <- file.path(testthat_path, "_snaps")
+  test_dir       <- file.path(pkg_source_path, "tests")
+  testthat_path  <- file.path(test_dir, "testthat")
+  snaps_path     <- file.path(testthat_path, "_snaps")
   
-  testit_path <- file.path(test_dir, "testit")
-  test_ci_path <- file.path(test_dir, "test-ci")
+  testit_path    <- file.path(test_dir, "testit")
+  test_ci_path   <- file.path(test_dir, "test-ci")
   test_cran_path <- file.path(test_dir, "test-cran")
+
+  # --- tinytest discovery (inst/tinytest + common runner files in tests/) ---
+  tinytest_dir <- file.path(pkg_source_path, "inst", "tinytest")
+  # Some packages expose a tinytest runner in tests/ (names vary)
+  tinytest_runner_candidates <- c(
+    file.path(test_dir, "tinytest.R"),
+    file.path(test_dir, "runTinyTests.R"),
+    file.path(test_dir, "run_tinytest.R")
+  )
+  has_tinytest_dir    <- dir.exists(tinytest_dir)
+  tinytest_runner_vec <- tinytest_runner_candidates[file.exists(tinytest_runner_candidates)]
+  has_tinytest_runner <- length(tinytest_runner_vec) > 0
+  has_tinytest        <- has_tinytest_dir || has_tinytest_runner
+  
   
   # Check for testthat and testit (standard and nonstandard)
   has_testthat <- dir.exists(testthat_path)
   has_testit <- dir.exists(testit_path) || (dir.exists(test_ci_path) && dir.exists(test_cran_path))
+
+  # ---------- data.table-specific detection ----------
+  # Canonical entrypoint and raw drivers:
+  # - tests/main.R   (calls test.data.table() -> full suite)  [preferred]
+  # - tests/tests.Rraw or tests/tests.Rraw.bz2                [mirrored]
+  # - inst/tests/tests.Rraw or inst/tests/tests.Rraw.bz2      [source driver]
+  # that this detection is intentionally broad to support 
+  # data.table-like test structures in other packages.
+  dt_main            <- file.path(test_dir, "main.R")
+  dt_raw_tests       <- file.path(test_dir, "tests.Rraw")
+  dt_raw_tests_bz2   <- paste0(dt_raw_tests, ".bz2")
+  dt_raw_inst        <- file.path(pkg_source_path, "inst", "tests", "tests.Rraw")
+  dt_raw_inst_bz2    <- paste0(dt_raw_inst, ".bz2")
   
-  # Count golden test snapshot files
+  has_dt_main        <- file.exists(dt_main)
+  has_dt_raw_tests   <- file.exists(dt_raw_tests)    || file.exists(dt_raw_tests_bz2)
+  has_dt_raw_inst    <- file.exists(dt_raw_inst)     || file.exists(dt_raw_inst_bz2)
+  
+  has_data_table_tests <- has_dt_main || has_dt_raw_tests || has_dt_raw_inst
+  
+  # Choose the best path to run:
+  data_table_tests_path <- if (has_dt_main) {
+    dt_main
+  } else if (has_dt_raw_tests) {
+    if (file.exists(dt_raw_tests)) dt_raw_tests else dt_raw_tests_bz2
+  } else if (has_dt_raw_inst) {
+    if (file.exists(dt_raw_inst)) dt_raw_inst else dt_raw_inst_bz2
+  } else {
+    NA_character_
+  }
+  
+  # snapshots ----------
+  
   has_snaps <- dir.exists(snaps_path)
   n_golden_tests <- if (has_snaps) {
     snapshot_files <- list.files(snaps_path, recursive = TRUE, full.names = TRUE)
@@ -79,7 +89,7 @@ check_pkg_tests_and_snaps <- function(pkg_source_path) {
     0
   }
   
-  # Count test-*.R files in testthat
+  # ---------- testthat test-*.R count ----------
   n_test_files <- if (has_testthat) {
     test_files <- list.files(
       testthat_path,
@@ -92,58 +102,92 @@ check_pkg_tests_and_snaps <- function(pkg_source_path) {
   } else {
     0
   }
- 
-  # Only check for base R test scripts if none of the known test frameworks are present
-  has_tests_base <- FALSE
-  if (!has_testthat && !has_testit && !dir.exists(test_ci_path) && !dir.exists(test_cran_path)) {
-    base_test_files <- list.files(
-      test_dir,
-      pattern = "\\.R$",
-      full.names = TRUE
-    )
-    # Exclude files in known subdirectories
-    base_test_files <- base_test_files[dirname(base_test_files) == test_dir]
-    # EXCLUDE tests/run_unitTests.R (launcher for Bioconductor RUnit tests)
-    base_test_files <- base_test_files[basename(base_test_files) != "run_unitTests.R"]
-    has_tests_base <- length(base_test_files) > 0
+  
+
+  # --- Count tinytest test files (any *.R under inst/tinytest) ---
+  n_tinytest_files <- if (has_tinytest_dir) {
+    list.files(tinytest_dir, pattern = "\\.[rR]$", recursive = TRUE, full.names = TRUE) |>
+      length()
+  } else {
+    0
   }
   
-  # BiocGenerics 3-part check ----
-  # 1) tests under inst/unitTests
+  # ---------- Bioconductor RUnit (BiocGenerics-style) ----------
   bioc_unit_tests_dir <- file.path(pkg_source_path, "inst", "unitTests")
   has_bioc_unit_tests <- dir.exists(bioc_unit_tests_dir)
   bioc_unit_tests_dir <- if (has_bioc_unit_tests) bioc_unit_tests_dir else NA_character_
   
-  # 2) presence of tests/run_unitTests.R (as in BiocGenerics/tests/run_unitTests.R)
   bioc_run_ut_path <- file.path(pkg_source_path, "tests", "run_unitTests.R")
   has_bioc_run_unitTests <- file.exists(bioc_run_ut_path)
   bioc_run_ut_path <- if (has_bioc_run_unitTests) bioc_run_ut_path else NA_character_
   
-  # 3) presence of .test in R/zzz.R (Bioconductor RUnit hook)
   zzz_path <- file.path(pkg_source_path, "R", "zzz.R")
   has_bioc_dot_test <- FALSE
   if (file.exists(zzz_path)) {
     zzz_lines <- tryCatch(readLines(zzz_path, warn = FALSE), error = function(e) character())
-    # Look for a function assignment like `.test <- function(...)`
     has_bioc_dot_test <- any(grepl("\\.test\\s*<-\\s*function\\b", zzz_lines))
   }
-  
-  # Overall Bioconductor test flag: TRUE only if all three are present
   has_BioG_test <- has_bioc_unit_tests && has_bioc_run_unitTests && has_bioc_dot_test
   
+  # CRAN RUnit runner (e.g. fBasics, many legacy CRAN packages)
+  doRUnit_path <- file.path(pkg_source_path, "tests", "doRUnit.R")
+  has_doRUnit <- file.exists(doRUnit_path)
+  doRUnit_path <- if (has_doRUnit) doRUnit_path else NA_character_
   
-  return(list(
+  # ---------- RUnit-only (inst/unitTests; optionally tests/run_unitTests.R) ----------
+  # Broader than BioG: does not require .test <- function in zzz.R
+  # Treat as "RUnit-only" by excluding full BioG/BiocGenerics layouts
+  has_RUnit_test <- has_bioc_unit_tests && !has_BioG_test
+  
+  # ---------- base-R style tests (only if no known frameworks) ----------
+  has_tests_base <- FALSE
+  if (!has_data_table_tests && !has_tinytest && 
+      !has_testthat && !has_testit && 
+      !has_RUnit_test && !has_BioG_test &&
+      !dir.exists(test_ci_path) && !dir.exists(test_cran_path)) {
+    
+    base_test_files <- list.files(
+      path         = test_dir,
+      pattern      = "\\.r$",        # match .R or .r
+      full.names   = TRUE,
+      recursive    = FALSE,          # only top-level
+      ignore.case  = TRUE,           # handle .R vs .r
+      include.dirs = FALSE,          # don’t return directories
+      no..         = TRUE            # exclude '.' and '..'
+    )
+    
+    # Exclude RUnit launchers (BioC and CRAN conventions)
+    base_test_files <- base_test_files[
+      !basename(base_test_files) %in% c("run_unitTests.R", "doRUnit.R")
+    ]
+    has_tests_base <- length(base_test_files) > 0
+  }
+  
+  # set up list
+  test_types <- list(
     has_testthat = has_testthat,
     has_snaps = has_snaps,
     has_testit = has_testit,
     has_tests_base = has_tests_base,
     has_BioG_test =  has_BioG_test,
+    has_RUnit_test = has_RUnit_test,
     bioc_unit_tests_dir = bioc_unit_tests_dir,
     bioc_run_ut_path = bioc_run_ut_path,
+    doRUnit_path = doRUnit_path,
     n_golden_tests = n_golden_tests,
-    n_test_files = n_test_files
-  ))
+    n_test_files = n_test_files,
+    has_tinytest          = has_tinytest,
+    tinytest_dir          = if (has_tinytest_dir) tinytest_dir else NA_character_,
+    tinytest_runner_paths = if (has_tinytest_runner) tinytest_runner_vec else character(0),
+    n_tinytest_files      = n_tinytest_files,
+    has_data_table_tests  = has_data_table_tests,
+    data_table_tests_path = data_table_tests_path
+  )
+
+  return(test_types)
+
 }
+
 
 
 #' Compute approximate total coverage combining line coverage and test breadth
@@ -224,9 +268,4 @@ compute_total_coverage <- function(
   
   return(calc_cov_list)
 }  
-
-
-
-
-
 

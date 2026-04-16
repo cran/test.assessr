@@ -38,28 +38,11 @@ get_test_metadata <- function(executor = NULL) {
   return(metadata)
 }
 
-#' Get Package Name for Display
+#' get package name for display
 #'
-#' Extracts a display-friendly package name from either a file path or a
-#' filename. The function removes directory components (if present) and then
-#' returns the substring up to the first underscore or hyphen. This is useful
-#' for converting paths or tarball names into a clean package identifier.
+#' @param input_string - string containing package name
 #'
-#' @param input_string Character string. A package filename or a path containing
-#'   the filename (e.g., \code{"mypkg_1.0.0.tar.gz"} or
-#'   \code{"/path/to/mypkg_1.0.0.tar.gz"}).
-#'
-#' @return
-#' A character scalar containing the cleaned package name.  
-#'
-#' The returned object is always of class \code{character} and corresponds to
-#' the portion of the filename before the first underscore or hyphen.
-#'
-#' @section Output Meaning:
-#' The value represents a human‑readable package name extracted from a file
-#' path or filename. It does not validate whether the extracted name corresponds
-#' to an installed or existing package—only that it conforms to the expected
-#' tarball naming convention.
+#' @return pkg_disp - package name for display
 #'
 #' @examples
 #' \donttest{
@@ -90,32 +73,12 @@ get_pkg_name <- function(input_string) {
   return(pkg_disp)
 }
 
-#' Extract the Last Two Path Components from a File Path
+
+#' Helper to extract "R/<file>" from any path by taking the last two components
 #'
-#' This helper function takes any full file path and extracts only the last
-#' two components, such as `"R/add.R"`. It supports both forward slashes (`/`)
-#' and backslashes (`\\`) to accommodate Windows, macOS, and Linux paths.
+#' @param long_file_name A string containing the full file path (supports '/' or '\')
 #'
-#' Trailing separators are preserved where meaningful (e.g., `"R/"` when the
-#' input ends with a slash). Empty path components are removed except when
-#' required to detect a trailing separator.
-#'
-#' @param long_file_name Character string. A full file path using `/` or `\\`
-#'   as separators.
-#'
-#' @return
-#' A character scalar containing the last two components of the path joined
-#' with a forward slash—for example `"R/add.R"`—or a single component if only
-#' one exists. The returned value is always of class \code{character}.
-#'
-#' @section Output Meaning:
-#' This function is intended for display and logging purposes, where only the
-#' tail portion of a full file path is meaningful. It does not check for file
-#' existence; it simply processes the string supplied by the user.
-#'
-#' @examples
-#' extract_short_path("pkg/R/add.R")
-#' extract_short_path("C:\\\\projects\\\\mypkg\\\\R\\\\helper.R")
+#' @return A character string composed of the last two path components, e.g., "R/add.R"
 #'
 #' @export
 extract_short_path <- function(long_file_name) {

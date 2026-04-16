@@ -4,12 +4,14 @@
 \alias{create_fail_reporter}
 \title{Create Fail Reporter}
 \usage{
-create_fail_reporter(test_path, pkg)
+create_fail_reporter(test_path, pkg, cov_env)
 }
 \arguments{
 \item{test_path}{Character string specifying the path to the test directory.}
 
 \item{pkg}{Character string specifying the package name.}
+
+\item{cov_env}{environment convr environment.}
 }
 \value{
 A list of test results with corrected contexts, or `NULL` if an error occurs.

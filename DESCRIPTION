@@ -1,6 +1,6 @@
 Package: test.assessr
 Title: Assessing Package Test Reliability and Quality
-Version: 1.1.1
+Version: 2.0.0
 Authors@R: c(
     person("Edward", "Gillian", , "edward.gillian-ext@sanofi.com", role = c("cre", "aut"), comment = c(ORCID = "0000-0003-2732-5107")),
     person("Hugo", "Bottois", , "hugo.bottois@sanofi.com", role = "aut", comment = c(ORCID = "0000-0003-4674-0875")),
@@ -12,17 +12,17 @@ License: GPL (>= 2)
 BugReports: https://github.com/Sanofi-Public/test.assessr/issues
 Depends: R (>= 4.1.0)
 Imports: callr, checkmate, covr, dplyr, fs, jsonlite, pkgload, remotes,
-        rlang, rmarkdown, RUnit, stringr, testthat (>= 3.0.0), tidyr,
-        utils, withr
-Suggests: devtools, DT, here, kableExtra, knitr, methods, R6, S7,
-        roxygen2, tidyselect, tools, mockery
+        rlang, rmarkdown, RUnit, stringr (>= 1.5.0), testthat (>=
+        3.0.0), tinytest, tidyr, utils, withr
+Suggests: devtools, DT, here, kableExtra (>= 1.4.0), knitr, methods,
+        R6, S7, roxygen2, tidyselect, tools, mockery
 Encoding: UTF-8
 RoxygenNote: 7.3.3
 Config/testthat/edition: 3
 Config/build/clean-inst-doc: false
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-02-24 10:54:56 UTC; u1004798
+Packaged: 2026-04-16 11:11:39 UTC; u1004798
 Author: Edward Gillian [cre, aut] (ORCID:
     <https://orcid.org/0000-0003-2732-5107>),
   Hugo Bottois [aut] (ORCID: <https://orcid.org/0000-0003-4674-0875>),
@@ -31,4 +31,4 @@ Author: Edward Gillian [cre, aut] (ORCID:
   Sanofi [cph, fnd]
 Maintainer: Edward Gillian <edward.gillian-ext@sanofi.com>
 Repository: CRAN
-Date/Publication: 2026-03-02 22:20:02 UTC
+Date/Publication: 2026-04-16 11:50:02 UTC

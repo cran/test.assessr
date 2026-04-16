@@ -1,4 +1,3 @@
-
 #' Package-Private Coverage Environment
 #'
 #' `cov_env` is a package-internal environment used by test/coverage helpers

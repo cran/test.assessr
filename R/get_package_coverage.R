@@ -32,14 +32,30 @@
 #' )
 #'
 #' # Run get_package_coverage
-#' get_package_coverage <- get_package_coverage(pkg_source_path)
+#' pkg_test_coverage <- get_package_coverage(pkg_source_path)
 #' }
 #' @export
 get_package_coverage <-function(path = NULL) {
   
+  # record covr tests (temporarily set and restore on exit)
+  old_covr_record_tests <- getOption("covr.record_tests")
+  options(covr.record_tests = TRUE)
+  on.exit(
+    {
+      # If the option was previously unset (NULL), remove it again;
+      # otherwise, restore the original value.
+      if (is.null(old_covr_record_tests)) {
+        options(covr.record_tests = NULL)
+      } else {
+        options(covr.record_tests = old_covr_record_tests)
+      }
+    },
+    add = TRUE
+  )
+  
   # save and set user's current working directory
   oldwd <- getwd()  
-  on.exit(setwd(oldwd), add = TRUE)
+  on.exit(setwd(oldwd))
   
   # get user chosen file
   pkg_source_path <- if (is.null(path)) file.choose() else path
@@ -56,7 +72,6 @@ get_package_coverage <-function(path = NULL) {
   options(repos = tmp_repos)
   # Ensure options are restored even if the function errors
   on.exit(options(repos = old_repos), add = TRUE)
-  
   
   # Set up the package using the temporary file
   install_list <- set_up_pkg(pkg_source_path)

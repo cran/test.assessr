@@ -1,4 +1,3 @@
-
 #' Install a Package from a Local Source Directory
 #'
 #' Attempts to install an R package from a local source directory using

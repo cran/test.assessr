@@ -1,4 +1,3 @@
-
 #' Create Information on Local Package Installation
 #'
 #' This function unpacks a package tarball using \code{unpack_tarball()} and
@@ -37,7 +36,7 @@
 #' @export
 set_up_pkg <- function(dp) {
   
-    suppressWarnings(pkg_source_path <- unpack_tarball(dp))
+  suppressWarnings(pkg_source_path <- unpack_tarball(dp))
   
   # check if pkg_source_path exists
   if (length(pkg_source_path) == 0) {

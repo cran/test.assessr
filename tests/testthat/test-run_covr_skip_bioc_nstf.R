@@ -12,28 +12,28 @@ make_mapping <- function() {
 
 test_that("diagnostic: coverage block functions are invoked (covr + reducer)", {
   fn <- run_covr_skip_bioc_nstf
-
+  
   pkg_source_path <- "/fake/pkg"
   pkg_name <- "mypkg"
   test_pkg_data <- list(bioc_run_ut_path = NA_character_)
-
+  
   # Same setup as above (mapping, normalize, prepare, etc.)
   mockery::stub(fn, "get_pkg_name",         mockery::mock(pkg_name))
   mockery::stub(fn, "is_bioc_runit_layout", mockery::mock(TRUE))
   mockery::stub(fn, "get_biocgenerics_test_paths",
                 mockery::mock(list(bioc_unitTests = file.path(pkg_source_path, "inst", "unitTests"))))
   mockery::stub(fn, "normalizePath", function(x, winslash = "/", mustWork = FALSE) x)
-
+  
   mapping <- data.frame(
     source_file = "a.R", test_file = "test-a.R", evidence = "filename_match",
     has_tests = TRUE, stringsAsFactors = FALSE
   )
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", mockery::mock(mapping))
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", mockery::mock(mapping))
   mockery::stub(fn, "prepare_for_bioc_runit",     mockery::mock(TRUE))
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf",  mockery::mock(data.frame(test_file = NA_character_, issue_type = "No tests skipped", stringsAsFactors = FALSE)))
+  mockery::stub(fn, "check_covr_skip_bioc_nstf",  mockery::mock(data.frame(test_file = NA_character_, issue_type = "No tests skipped", stringsAsFactors = FALSE)))
   mockery::stub(fn, "get_function_no_tests",      mockery::mock(data.frame(fn = "b", stringsAsFactors = FALSE)))
   mockery::stub(fn, "tidyr::drop_na",             function(df) df)
-
+  
   mockery::stub(fn, "ls",               mockery::mock(c("obj1")))
   mockery::stub(fn, "asNamespace",      mockery::mock(new.env()))
   mockery::stub(fn, "assign",           mockery::mock(NULL))
@@ -45,7 +45,7 @@ test_that("diagnostic: coverage block functions are invoked (covr + reducer)", {
   mockery::stub(fn, "library",          mockery::mock(NULL))
   mockery::stub(fn, "tempfile",         mockery::mock("/tmp/runner.R"))
   mockery::stub(fn, "writeLines",       mockery::mock(NULL))
-
+  
   
   # avoid error from as.environment("package:mypkg")
   mockery::stub(fn, "as.environment", function(name) {
@@ -63,17 +63,17 @@ test_that("diagnostic: coverage block functions are invoked (covr + reducer)", {
     total_cov = 0.50, percent_cov = 75.0,
     n_testfiles = 1L, n_no_function_tests = 1L, n_skipped_files = 0L
   ))
-
+  
   mockery::stub(fn, "covr::environment_coverage", spy_env_cov)
   mockery::stub(fn, "covr::coverage_to_list",     spy_cov_to_list)
   mockery::stub(fn, "compute_total_coverage",     spy_compute)
-
+  
   res <- fn(pkg_source_path = pkg_source_path, test_pkg_data = test_pkg_data)
-
+  
   mockery::expect_called(spy_env_cov,   1)
   mockery::expect_called(spy_cov_to_list, 1)
   mockery::expect_called(spy_compute,   1)
-
+  
   expect_identical(res$total_cov, 0.50)
   expect_identical(res$res_cov$coverage$totalcoverage, 75.0)
 })
@@ -145,9 +145,9 @@ test_that("messages when package is not using BioC RUnit layout and returns defa
   mockery::stub(fn, "is_bioc_runit_layout",       mock_is_layout)
   mockery::stub(fn, "get_biocgenerics_test_paths",mock_get_paths)
   mockery::stub(fn, "normalizePath",              mock_normalize)
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", mock_get_mapping)
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", mock_get_mapping)
   mockery::stub(fn, "prepare_for_bioc_runit",     mock_prepare)
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf",  mock_problems)
+  mockery::stub(fn, "check_covr_skip_bioc_nstf",  mock_problems)
   mockery::stub(fn, "get_function_no_tests",      mock_no_tests)
   mockery::stub(fn, "tidyr::drop_na",             mock_drop_na)
   mockery::stub(fn, "ls",                         mock_ls)
@@ -197,7 +197,7 @@ test_that("returns NULL when source-test mapping errors", {
   mockery::stub(fn, "get_biocgenerics_test_paths", mockery::mock(list(bioc_unitTests = file.path(pkg_source_path, "inst", "unitTests"))))
   mockery::stub(fn, "normalizePath",        mockery::mock(function(x, winslash = "/", mustWork = FALSE) x, cycle = TRUE))
   # Mapping: throw error so tryCatch invokes cleanup_and_return_null -> returns NULL -> early exit
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", function(...) stop("boom-mapping"))
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", function(...) stop("boom-mapping"))
   mockery::stub(fn, "cleanup_and_return_null",           mockery::mock(NULL))
   
   res <- fn(pkg_source_path = pkg_source_path, test_pkg_data = test_pkg_data)
@@ -216,7 +216,7 @@ test_that("returns NULL when prepare_for_bioc_runit fails", {
   mockery::stub(fn, "is_bioc_runit_layout", mockery::mock(TRUE))
   mockery::stub(fn, "get_biocgenerics_test_paths", mockery::mock(list(bioc_unitTests = file.path(pkg_source_path, "inst", "unitTests"))))
   mockery::stub(fn, "normalizePath",        mockery::mock(function(x, winslash = "/", mustWork = FALSE) x, cycle = TRUE))
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", mockery::mock(make_mapping()))
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", mockery::mock(make_mapping()))
   # Force prepare to error; tryCatch should call cleanup_and_return_null and return NULL
   mockery::stub(fn, "prepare_for_bioc_runit", function(...) stop("prep-error"))
   mockery::stub(fn, "cleanup_and_return_null", mockery::mock(NULL))
@@ -243,9 +243,9 @@ test_that("coverage error path yields a default covr_list even when mapping & pr
   mockery::stub(fn, "normalizePath",        mockery::mock(function(x, winslash = "/", mustWork = FALSE) x, cycle = TRUE))
   
   # Mapping and later pipeline
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", mockery::mock(make_mapping()))
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", mockery::mock(make_mapping()))
   mockery::stub(fn, "prepare_for_bioc_runit", mockery::mock(TRUE))
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf", mockery::mock(data.frame(
+  mockery::stub(fn, "check_covr_skip_bioc_nstf", mockery::mock(data.frame(
     test_file  = NA_character_,
     issue_type = "No tests skipped",
     stringsAsFactors = FALSE
@@ -318,10 +318,10 @@ test_that("error in coverage_to_list hits error branch but lines still produce m
       stringsAsFactors = FALSE
     )
   }
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf", mockery::mock(make_mapping()))
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf", mockery::mock(make_mapping()))
   
   mockery::stub(fn, "prepare_for_bioc_runit", mockery::mock(TRUE))
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf", mockery::mock(
+  mockery::stub(fn, "check_covr_skip_bioc_nstf", mockery::mock(
     data.frame(test_file = NA_character_, issue_type = "No tests skipped", stringsAsFactors = FALSE)
   ))
   mockery::stub(fn, "get_function_no_tests", mockery::mock(data.frame(fn = "b", stringsAsFactors = FALSE)))
@@ -424,282 +424,36 @@ test_that("returns FALSE when no BioC-RUnit indicators are present", {
   # test_pkg_data NULL or missing field -> isTRUE(NULL) => FALSE
   res1 <- fn(pkg_source_path = "/fake/path", test_pkg_data = NULL)
   expect_false(res1)
-
-})
-
-test_that("returns TRUE when inst/unitTests directory exists", {
-  fn <- is_bioc_runit_layout
   
-  # dir.exists should return TRUE; file.exists shouldn't need to be consulted,
-  # but we mock it to a known value anyway.
-  mock_dir_exists  <- mockery::mock(TRUE)
-  mock_file_exists <- mockery::mock(FALSE)
-  
-  mockery::stub(fn, "dir.exists", mock_dir_exists)
-  mockery::stub(fn, "file.exists", mock_file_exists)
-  
-  res <- fn(pkg_source_path = "/fake/path", test_pkg_data = list(has_BioG_test = FALSE))
-  expect_true(res)
-  
-  # Verify dir.exists was called once with constructed path
-  mockery::expect_called(mock_dir_exists, 1)
-  # We can also check the argument passed to dir.exists (optional)
-  called_args <- mockery::mock_args(mock_dir_exists)
-  expect_match(called_args[[1]][[1]], "/fake/path/inst/unitTests$")
-})
-
-test_that("returns TRUE when tests/run_unitTests.R file exists", {
-  fn <- is_bioc_runit_layout
-  
-  mock_dir_exists  <- mockery::mock(FALSE)
-  mock_file_exists <- mockery::mock(TRUE)
-  
-  mockery::stub(fn, "dir.exists", mock_dir_exists)
-  mockery::stub(fn, "file.exists", mock_file_exists)
-  
-  res <- fn(pkg_source_path = "/fake/path", test_pkg_data = list(has_BioG_test = FALSE))
-  expect_true(res)
-  
-  # Verify file.exists was called once with constructed path
-  mockery::expect_called(mock_file_exists, 1)
-  called_args <- mockery::mock_args(mock_file_exists)
-  expect_match(called_args[[1]][[1]], "/fake/path/tests/run_unitTests\\.R$")
-})
-
-test_that("short-circuit behavior: when has_BioG_test is TRUE, other checks need not be TRUE", {
-  fn <- is_bioc_runit_layout
-  
-  # We set dir.exists and file.exists to throw if called; if the function
-  # short-circuits correctly, these should not be invoked.
-  throwing_dir_exists <- function(...) stop("dir.exists should not be called")
-  throwing_file_exists <- function(...) stop("file.exists should not be called")
-  
-  mockery::stub(fn, "dir.exists", throwing_dir_exists)
-  mockery::stub(fn, "file.exists", throwing_file_exists)
-  
-  expect_true(fn(pkg_source_path = "/fake/path", test_pkg_data = list(has_BioG_test = TRUE)))
-})
-
-test_that("handles has_BioG_test = NULL or missing field as FALSE", {
-  fn <- is_bioc_runit_layout
-  
-  mock_dir_exists  <- mockery::mock(FALSE)
-  mock_file_exists <- mockery::mock(FALSE)
-  
-  mockery::stub(fn, "dir.exists", mock_dir_exists)
-  mockery::stub(fn, "file.exists", mock_file_exists)
-  
-  # Explicit NULL value
-  res_null <- fn(pkg_source_path = "/fake/path", test_pkg_data = list(has_BioG_test = NULL))
-  expect_false(res_null)
-
-})
-
-test_that("supports atomic pkg_source_path; only path construction matters", {
-  fn <- is_bioc_runit_layout
-  
-  mock_dir_exists  <- mockery::mock(FALSE)
-  mock_file_exists <- mockery::mock(FALSE)
-  
-  mockery::stub(fn, "dir.exists", mock_dir_exists)
-  mockery::stub(fn, "file.exists", mock_file_exists)
-  
-  # Try with a different path format; the stubs ensure no actual filesystem usage
-  res <- fn(pkg_source_path = "C:\\proj", test_pkg_data = NULL)
-  expect_false(res)
 })
 
 
-test_that("does nothing when package not attached and namespace not loaded", {
-  fn <- detach_pkg_if_attached
-  
-  # search() contains no package:pkg
-  mock_search <- mockery::mock(c("package:stats", "package:utils"))
-  mock_detach <- mockery::mock(NULL)             # should not be called
-  mock_is_ns   <- mockery::mock(FALSE)
-  mock_unload  <- mockery::mock(NULL)            # should not be called
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  # Result is invisible TRUE
-  v <- withVisible(fn("mypkg", unload_namespace = TRUE, quiet = TRUE))
-  expect_true(v$value)
-  expect_false(v$visible)
-  
-  # detach and unload should not be called
-  mockery::expect_called(mock_detach, 0)
-  mockery::expect_called(mock_unload, 0)
-  
-  # no messages because quiet = TRUE
-  mockery::expect_called(mock_message, 0)
-})
 
-test_that("detaches when package attached; quiet=TRUE suppresses message", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:mypkg", "package:stats"))
-  mock_detach <- mockery::mock(NULL)
-  mock_is_ns  <- mockery::mock(FALSE)     # namespace not loaded
-  mock_unload <- mockery::mock(NULL)      # not called
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  res <- fn("mypkg", unload_namespace = TRUE, quiet = TRUE)
-  expect_true(res)
-  
-  # detach should be called once with constructed search name and flags
-  mockery::expect_called(mock_detach, 1)
-  args <- mockery::mock_args(mock_detach)
-  expect_equal(args[[1]][[1]], "package:mypkg")
-  expect_true(isTRUE(args[[1]][["unload"]]))
-  expect_true(isTRUE(args[[1]][["character.only"]]))
-  
-  # namespace unload should not be called (isNamespaceLoaded == FALSE)
-  mockery::expect_called(mock_unload, 0)
-  
-  # quiet=TRUE means no message
-  mockery::expect_called(mock_message, 0)
-})
-
-test_that("unloads namespace when loaded; quiet=TRUE suppresses message", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:stats"))  # not attached
-  mock_detach <- mockery::mock(NULL)                # not called
-  mock_is_ns  <- mockery::mock(TRUE)                # namespace loaded
-  mock_unload <- mockery::mock(NULL)
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  res <- fn("mypkg", unload_namespace = TRUE, quiet = TRUE)
-  expect_true(res)
-  
-  mockery::expect_called(mock_detach, 0)
-  mockery::expect_called(mock_unload, 1)
-  unload_args <- mockery::mock_args(mock_unload)
-  expect_equal(unload_args[[1]][[1]], "mypkg")
-  
-  mockery::expect_called(mock_message, 0)
-})
-
-test_that("both detach and unload occur when attached and namespace loaded", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:mypkg", "package:stats"))
-  mock_detach <- mockery::mock(NULL)
-  mock_is_ns  <- mockery::mock(TRUE)
-  mock_unload <- mockery::mock(NULL)
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  res <- fn("mypkg", unload_namespace = TRUE, quiet = TRUE)
-  expect_true(res)
-  
-  mockery::expect_called(mock_detach, 1)
-  mockery::expect_called(mock_unload, 1)
-  mockery::expect_called(mock_message, 0)
-})
-
-test_that("unload_namespace = FALSE prevents namespace unloading", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:mypkg"))
-  mock_detach <- mockery::mock(NULL)
-  mock_is_ns  <- mockery::mock(TRUE)    # would be loaded, but flag stops unload
-  mock_unload <- mockery::mock(NULL)    # should not be called
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  res <- fn("mypkg", unload_namespace = FALSE, quiet = TRUE)
-  expect_true(res)
-  
-  mockery::expect_called(mock_detach, 1)
-  mockery::expect_called(mock_unload, 0)
-})
-
-test_that("try() respects silent flag; errors in detach/unload are swallowed when quiet=TRUE", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:mypkg"))
-  mock_detach <- function(...) stop("detach failed")  # throws
-  mock_is_ns  <- mockery::mock(TRUE)
-  mock_unload <- function(...) stop("unload failed")  # throws
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  # quiet=TRUE => try(..., silent = TRUE): errors are swallowed, function still returns TRUE
-  expect_true(fn("mypkg", unload_namespace = TRUE, quiet = TRUE))
-})
-
-test_that("returns invisible(TRUE) in all paths", {
-  fn <- detach_pkg_if_attached
-  
-  mock_search <- mockery::mock(c("package:mypkg"))
-  mock_detach <- mockery::mock(NULL)
-  mock_is_ns  <- mockery::mock(TRUE)
-  mock_unload <- mockery::mock(NULL)
-  mock_message <- mockery::mock(NULL)
-  
-  mockery::stub(fn, "search", mock_search)
-  mockery::stub(fn, "detach", mock_detach)
-  mockery::stub(fn, "isNamespaceLoaded", mock_is_ns)
-  mockery::stub(fn, "unloadNamespace", mock_unload)
-  mockery::stub(fn, "message", mock_message)
-  
-  v <- withVisible(fn("mypkg", unload_namespace = TRUE, quiet = TRUE))
-  expect_true(v$value)
-  expect_false(v$visible)
-})
 
 
 test_that("detaches target package and BioC infra packages in order", {
   fn <- prepare_for_bioc_runit
   
   # Mock the detacher to record calls
-  mock_detach <- mockery::mock(NULL, NULL, NULL, NULL)  # 4 calls total expected
-  # Mock load_all to prevent real load and to inspect args
+  mock_detach <- mockery::mock(NULL, NULL, NULL, NULL)  # 4 total calls expected
+  
+  # Mock load_all to prevent real loading
   mock_load_all <- mockery::mock(NULL)
   
-  # Stub symbols referenced inside the function
+  # Stub functions called inside prepare_for_bioc_runit
   mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
   mockery::stub(fn, "pkgload::load_all", mock_load_all)
   
-  # Use a fake path/pkg
-  res <- fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg")
+  # Call with explicit detach_bioc_infra = TRUE since it's now a parameter
+  res <- fn(
+    pkg_name = "mypkg",
+    pkg_source_path = "/tmp/mypkg",
+    detach_bioc_infra = TRUE
+  )
   
   expect_true(res)
   
-  # Expect 4 detach calls: mypkg, IRanges, S4Vectors, BiocGenerics
+  # Expect 4 detach calls in order: mypkg, IRanges, S4Vectors, BiocGenerics
   mockery::expect_called(mock_detach, 4)
   calls <- mockery::mock_args(mock_detach)
   
@@ -708,37 +462,45 @@ test_that("detaches target package and BioC infra packages in order", {
   expect_identical(calls[[3]][[1]], "S4Vectors")
   expect_identical(calls[[4]][[1]], "BiocGenerics")
   
-  # Verify load_all called once, with path and quiet=TRUE
+  # Verify load_all was called with the correct parameters
   mockery::expect_called(mock_load_all, 1)
   la_args <- mockery::mock_args(mock_load_all)
+  
   expect_identical(la_args[[1]][[1]], "/tmp/mypkg")
   expect_true(isTRUE(la_args[[1]][["quiet"]]))
 })
 
+
+
 test_that("options(warn) is temporarily set to 1 and restored after function exits", {
   fn <- prepare_for_bioc_runit
   
-  # Mocks to avoid real side effects
+  # Mocks to avoid side effects
   mock_detach <- mockery::mock(NULL, NULL, NULL, NULL)
   mock_load_all <- mockery::mock(NULL)
   
   mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
   mockery::stub(fn, "pkgload::load_all", mock_load_all)
   
-  # Preserve and auto-restore original options/env using withr
+  # Preserve original warn and auto-restore within test using withr
   old_warn <- getOption("warn")
   withr::local_options(list(warn = old_warn))
   
-  # Before call: whatever the test harness has
-  expect_identical(getOption("warn"), old_warn)
+  expect_identical(getOption("warn"), old_warn)  # sanity check
   
-  # Call the function (it will set warn=1 internally and restore on exit)
-  res <- fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg")
+  # Must now pass detach_bioc_infra explicitly
+  res <- fn(
+    pkg_name = "mypkg",
+    pkg_source_path = "/tmp/mypkg",
+    detach_bioc_infra = TRUE
+  )
+  
   expect_true(res)
   
-  # After return, warn should be restored to old_warn
+  # After fn() returns, warn should be restored
   expect_identical(getOption("warn"), old_warn)
 })
+
 
 test_that('R_TESTS is empty during test (local_envvar)', {
   is_windows <- identical(.Platform$OS.type, "windows")
@@ -751,15 +513,14 @@ test_that('R_TESTS is empty during test (local_envvar)', {
   
   # ... run things that depend on R_TESTS="", or assertions ...
   expect_identical(Sys.getenv("R_TESTS"), "")
-
+  
 })
+
 
 
 
 test_that("POSIX branch: sets R_TESTS='' and restores to UNSET when originally unset", {
   # Only run on Linux/macOS to exercise the POSIX branch
-  
-  # Skip on Windows with explanation
   skip_if(
     condition = .Platform$OS.type == "windows",
     message = paste(
@@ -769,72 +530,95 @@ test_that("POSIX branch: sets R_TESTS='' and restores to UNSET when originally u
     )
   )
   
-  
   fn <- prepare_for_bioc_runit
   
-  # Mock non-essential collaborators
+  # Mock collaborators
   mock_detach   <- mockery::mock(NULL, NULL, NULL, NULL)
   mock_load_all <- mockery::mock(NULL)
   mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
   mockery::stub(fn, "pkgload::load_all", mock_load_all)
   
-  # Ensure R_TESTS is UNSET to begin with
+  # Ensure R_TESTS is UNSET before the call
   Sys.unsetenv("R_TESTS")
   
-  # Belt & suspenders: ensure we leave R_TESTS unset after the test, even if assertions fail
-  withr::defer({
-    Sys.unsetenv("R_TESTS")
-  })
+  # Always restore to UNSET at end of test
+  withr::defer(Sys.unsetenv("R_TESTS"))
   
-  # Call the function under test (should set R_TESTS="" and register on.exit restoration)
-  res <- fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg")
+  # Sanity check: must be UNSET
+  expect_identical(
+    Sys.getenv("R_TESTS", unset = NA_character_),
+    NA_character_
+  )
+  
+  # Call function; must pass detach_bioc_infra explicitly
+  res <- fn(
+    pkg_name = "mypkg",
+    pkg_source_path = "/tmp/mypkg",
+    detach_bioc_infra = TRUE
+  )
   expect_true(res)
   
-  # After the function returns, on.exit should have restored to UNSET
-  # expect_true(is.na(Sys.getenv("R_TESTS", unset = NA_character_)))
 })
+
+
 
 
 test_that("POSIX branch: sets R_TESTS='' and restores to previous value when originally set (mocked)", {
   
   skip_if(
     condition = .Platform$OS.type == "windows",
-    message = paste("Skipped on Windows: this test exercises POSIX-specific behaviour where R_TESTS must be ",
-    "set to '' then restored. Windows environment handling (cmd.exe/PowerShell) treats empty ",
-    "environment variables differently and cannot reliably distinguish '' from prior values, ",
-    "making the restoration semantics untestable.")
+    message = paste(
+      "Skipped on Windows: this test exercises POSIX-specific behaviour where R_TESTS must be",
+      "set to '' then restored. Windows environment handling cannot reliably distinguish",
+      "empty vs unset values."
+    )
   )
-  
   
   fn <- prepare_for_bioc_runit
   
-  # Seed original value so old_R_TESTS inside fn is non-NA
+  # --- Seed original R_TESTS value ---
   original <- "previous-value"
   Sys.setenv(R_TESTS = original)
   
   # --- Mocks ---
-  mock_setenv   <- mockery::mock(NULL, NULL)   # first for "", then for restore to original
-  mock_unsetenv <- mockery::mock(NULL)         # should NOT be called in this path
+  # Sys.setenv should be called twice:
+  #   1. R_TESTS = ""
+  #   2. R_TESTS = original
+  mock_setenv   <- mockery::mock(NULL, NULL)
   
+  # Sys.unsetenv should NOT be called for "originally set" case
+  mock_unsetenv <- mockery::mock()
+  
+  # Other collaborators
   mock_detach   <- mockery::mock(NULL, NULL, NULL, NULL)
   mock_load_all <- mockery::mock(NULL)
   
-  mockery::stub(fn, "Sys.setenv",   mock_setenv)
-  mockery::stub(fn, "Sys.unsetenv", mock_unsetenv)
-  mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
-  mockery::stub(fn, "pkgload::load_all",      mock_load_all)
+  mockery::stub(fn, "Sys.setenv",              mock_setenv)
+  mockery::stub(fn, "Sys.unsetenv",            mock_unsetenv)
+  mockery::stub(fn, "detach_pkg_if_attached",  mock_detach)
+  mockery::stub(fn, "pkgload::load_all",       mock_load_all)
   
-  # Execute
-  res <- fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg")
+  # --- Execute ---
+  res <- fn(
+    pkg_name         = "mypkg",
+    pkg_source_path  = "/tmp/mypkg",
+    detach_bioc_infra = TRUE
+  )
   expect_true(res)
   
-  # Assertions:
+  # --- Assertions ---
   set_calls <- mockery::mock_args(mock_setenv)
   
-  # 1) It sets R_TESTS to empty string initially
-  expect_true(any(vapply(set_calls, function(x) identical(x, list(R_TESTS = "")), logical(1))),
-              info = "Sys.setenv(R_TESTS = \"\") should be called in POSIX branch")
-})  
+  # Expect first call: Sys.setenv(R_TESTS = "")
+  expect_identical(
+    set_calls[[1]],
+    list(R_TESTS = "")
+  )
+  
+  # Sys.unsetenv must NOT be called in this branch
+  mockery::expect_called(mock_unsetenv, 0)
+})
+
 
 
 
@@ -900,10 +684,10 @@ test_that("run_covr_skip_bioc_nstf: cleaning branch -> happy path updates mappin
   mockery::stub(fn, "is_bioc_runit_layout",                mock_is_layout)
   mockery::stub(fn, "get_biocgenerics_test_paths",         mock_get_paths)
   mockery::stub(fn, "normalizePath",                       mock_normalize)
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf",   mock_get_mapping)
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf",   mock_get_mapping)
   mockery::stub(fn, "remove_run_unitTests_mapping",        mock_remove_map)
   mockery::stub(fn, "prepare_for_bioc_runit",              mock_prepare)
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf",           mock_problems)
+  mockery::stub(fn, "check_covr_skip_bioc_nstf",           mock_problems)
   mockery::stub(fn, "get_function_no_tests",               mock_no_tests)
   mockery::stub(fn, "tidyr::drop_na",                      mock_drop_na)
   mockery::stub(fn, "ls",                                  mock_ls)
@@ -983,10 +767,10 @@ test_that("run_covr_skip_bioc_nstf: cleaning branch -> error calls cleanup_and_r
   mockery::stub(fn, "is_bioc_runit_layout",                mock_is_layout)
   mockery::stub(fn, "get_biocgenerics_test_paths",         mock_get_paths)
   mockery::stub(fn, "normalizePath",                       mock_normalize)
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf",   mock_get_mapping)
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf",   mock_get_mapping)
   mockery::stub(fn, "remove_run_unitTests_mapping",        mock_remove_map)
   mockery::stub(fn, "prepare_for_bioc_runit",              mock_prepare)
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf",           mock_problems)
+  mockery::stub(fn, "check_covr_skip_bioc_nstf",           mock_problems)
   mockery::stub(fn, "get_function_no_tests",               mock_no_tests)
   mockery::stub(fn, "tidyr::drop_na",                      mock_drop_na)
   mockery::stub(fn, "ls",                                  mock_ls)
@@ -1041,7 +825,7 @@ test_that("run_covr_skip_bioc_nstf: cleaning branch -> error calls cleanup_and_r
     )
   )
   
-    
+  
 })
 
 
@@ -1089,10 +873,10 @@ test_that("run_covr_skip_bioc_nstf: cleaning branch -> NULL mapping returns NULL
   mockery::stub(fn, "is_bioc_runit_layout",                mock_is_layout)
   mockery::stub(fn, "get_biocgenerics_test_paths",         mock_get_paths)
   mockery::stub(fn, "normalizePath",                       mock_normalize)
-  mockery::stub(fn, "get_source_test_mapping_Bioc_nstf",   mock_get_mapping)
+  mockery::stub(fn, "get_source_test_mapping_bioc_nstf",   mock_get_mapping)
   mockery::stub(fn, "remove_run_unitTests_mapping",        mock_remove_map)
   mockery::stub(fn, "prepare_for_bioc_runit",              mock_prepare)
-  mockery::stub(fn, "check_covr_skip_Bioc_nstf",           mock_problems)
+  mockery::stub(fn, "check_covr_skip_bioc_nstf",           mock_problems)
   mockery::stub(fn, "get_function_no_tests",               mock_no_tests)
   mockery::stub(fn, "tidyr::drop_na",                      mock_drop_na)
   mockery::stub(fn, "ls",                                  mock_ls)
@@ -1124,32 +908,50 @@ test_that("run_covr_skip_bioc_nstf: cleaning branch -> NULL mapping returns NULL
   }, logical(1))))
 })
 
+
 test_that("returns invisible(TRUE)", {
   fn <- prepare_for_bioc_runit
   
-  mock_detach <- mockery::mock(NULL, NULL, NULL, NULL)
+  mock_detach   <- mockery::mock(NULL, NULL, NULL, NULL)
   mock_load_all <- mockery::mock(NULL)
   
   mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
   mockery::stub(fn, "pkgload::load_all", mock_load_all)
   
-  v <- withVisible(fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg"))
+  v <- withVisible(
+    fn(
+      pkg_name        = "mypkg",
+      pkg_source_path = "/tmp/mypkg",
+      detach_bioc_infra = TRUE   # required with new signature
+    )
+  )
+  
   expect_true(v$value)
-  expect_false(v$visible)
+  expect_false(v$visible)   # ensure invisibility
 })
+
+
 
 test_that("propagates quietly (no messages) and does not error when mocked", {
   fn <- prepare_for_bioc_runit
   
-  mock_detach <- mockery::mock(NULL, NULL, NULL, NULL)
+  mock_detach   <- mockery::mock(NULL, NULL, NULL, NULL)
   mock_load_all <- mockery::mock(NULL)
   
   mockery::stub(fn, "detach_pkg_if_attached", mock_detach)
   mockery::stub(fn, "pkgload::load_all", mock_load_all)
   
-  expect_silent(res <- fn(pkg_name = "mypkg", pkg_source_path = "/tmp/mypkg"))
+  expect_silent(
+    res <- fn(
+      pkg_name         = "mypkg",
+      pkg_source_path  = "/tmp/mypkg",
+      detach_bioc_infra = TRUE   # required with new signature
+    )
+  )
+  
   expect_true(res)
 })
+
 
 test_that("load_all called even if detaches throw; try-catch not inside but we still see error", {
   fn <- prepare_for_bioc_runit
@@ -1169,7 +971,7 @@ test_that("load_all called even if detaches throw; try-catch not inside but we s
 
 
 test_that("errors if RUnit is not available", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mock_req_ns <- mockery::mock(FALSE)
   mockery::stub(fn, "requireNamespace", mock_req_ns)
@@ -1186,7 +988,7 @@ test_that("errors if RUnit is not available", {
 })
 
 test_that("cleans mapping via tidyr::drop_na when test_file contains NA", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mapping <- data.frame(test_file = c("test-a.R", NA_character_, "test-b.R"), stringsAsFactors = FALSE)
   
@@ -1378,7 +1180,7 @@ test_that("basename is consulted only when bioc_run_ut_path is usable", {
 })  
 
 test_that("classifies missing, error, failure, skipped, and passing files correctly", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mapping <- data.frame(
     test_file = c(
@@ -1448,13 +1250,13 @@ test_that("classifies missing, error, failure, skipped, and passing files correc
     issue_type = c("missing",        "error",              "error",               "failure",         "skipped"),
     stringsAsFactors = FALSE
   )
- 
+  
   expect_s3_class(res, "data.frame")
   expect_identical(res[, c("test_file", "issue_type")], expected)
 })
 
 test_that("when all files are passing, returns 'No tests skipped' row", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mapping <- data.frame(test_file = c("t1.R", "t2.R"), stringsAsFactors = FALSE)
   
@@ -1491,7 +1293,7 @@ test_that("when all files are passing, returns 'No tests skipped' row", {
 
 
 test_that("attaches RUnit namespace only when not already on search path", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mapping <- data.frame(test_file = "pass.R", stringsAsFactors = FALSE)
   
@@ -1522,7 +1324,7 @@ test_that("attaches RUnit namespace only when not already on search path", {
 })
 
 test_that("runTestFile error path is captured as 'error' without crashing", {
-  fn <- check_covr_skip_Bioc_nstf
+  fn <- check_covr_skip_bioc_nstf
   
   mapping <- data.frame(test_file = "test-error-throw.R", stringsAsFactors = FALSE)
   
@@ -1726,7 +1528,7 @@ test_that("handles duplicate candidate paths via unique()", {
   mockery::stub(fn, "file.exists", mock_file_exists)
   
   res <- fn(test_pkg_data = list(), testdir = raw_testdir)
-            
+  
   expect_true("fallback" %in% names(res))
   expect_identical(res$fallback, raw_testdir)
 })
@@ -1734,7 +1536,7 @@ test_that("handles duplicate candidate paths via unique()", {
 
 
 test_that("errors when no R source files are found", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/proj/pkg"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1756,7 +1558,7 @@ test_that("errors when no R source files are found", {
 })
 
 test_that("warns when no .R test files are found and maps NA tests", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/proj/pkg"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1789,7 +1591,7 @@ test_that("warns when no .R test files are found and maps NA tests", {
 })
 
 test_that("filename-based mapping: tokenized, case-insensitive, picks first match", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/pkg"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1819,7 +1621,7 @@ test_that("filename-based mapping: tokenized, case-insensitive, picks first matc
 })
 
 test_that("content-based mapping via RUnit test function names when filename matching fails", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/p"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1862,7 +1664,7 @@ test_that("content-based mapping via RUnit test function names when filename mat
 })
 
 test_that("content-based mapping uses symbols from function defs (avoid setGeneric parsing)", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/root"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1912,7 +1714,7 @@ test_that("content-based mapping uses symbols from function defs (avoid setGener
 })
 
 test_that("short symbol (<= 2 chars) matches via filename tokens", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/a"
   source_dir <- file.path(pkg_source_path, "R")
@@ -1940,7 +1742,7 @@ test_that("short symbol (<= 2 chars) matches via filename tokens", {
 })
 
 test_that("returns NA mapping for source with no filename or content evidence", {
-  fn <- get_source_test_mapping_Bioc_nstf
+  fn <- get_source_test_mapping_bioc_nstf
   
   pkg_source_path <- "/no"
   source_dir <- file.path(pkg_source_path, "R")

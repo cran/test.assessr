@@ -41,6 +41,6 @@ pkg_source_path <- system.file(
 )
 
 # Run get_package_coverage
-get_package_coverage <- get_package_coverage(pkg_source_path)
+pkg_test_coverage <- get_package_coverage(pkg_source_path)
 }
 }

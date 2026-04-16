@@ -24,6 +24,10 @@
 #'   `has_BioG_test` (logical flag), etc.).
 #' @param cov_env Environment that holds the temporary coverage workspace and
 #'   shared state for the run.
+#' @param framework Optional character. When provided (e.g. from
+#'   \code{run_one_framework}), restricts test paths to the framework-specific
+#'   directory. Use when a package has multiple frameworks (e.g. testthat + testit)
+#'   to avoid mixing paths across frameworks.      
 #'
 #' @return A `covr` coverage object on success; `NULL` on failure (via `cleanup_and_return_null()`).
 #'
@@ -34,9 +38,10 @@
 #'
 #' @return A covr coverage object, or NULL on failure.
 #' 
-#'
 #' @keywords internal
-run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
+run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, 
+                                    cov_env, 
+                                    framework = NULL) {
   
   cov_env  <- new.env(parent = globalenv())
   pkg_name <- get_pkg_name(pkg_source_path)
@@ -59,7 +64,7 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   
   message(paste0("performing source test mapping for ", pkg_name))
   mapping <- tryCatch({
-    get_source_test_mapping_Bioc_nstf(pkg_source_path, test_path)
+    get_source_test_mapping_bioc_nstf(pkg_source_path, test_path)
   }, error = function(e) {
     cleanup_and_return_null(paste0("Error in source-test mapping for ", pkg_name, " : ", e$message))
   })
@@ -77,9 +82,16 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   }
   
   # --- BioC/RUnit preparation: detach (if attached) and load_all() BEFORE running tests ---
-  message("[BioC RUnit] preparing package before running tests...")
+  detach_bioc <- isTRUE(test_pkg_data$has_BioG_test)
+  
+  if (detach_bioc) {
+    message("[BioC RUnit] preparing package before running tests...")
+  } else {
+    message("[RUnit] preparing package before running tests...")
+  }  
+  
   prep_ok <- tryCatch({
-    prepare_for_bioc_runit(pkg_name, pkg_source_path)
+    prepare_for_bioc_runit(pkg_name, pkg_source_path, detach_bioc_infra = detach_bioc)
     TRUE
   }, error = function(e) {
     cleanup_and_return_null(paste0("Error preloading for BioC RUnit (", pkg_name, "): ", e$message))
@@ -90,7 +102,7 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   message(paste0("identifying problem tests for ", pkg_name))
   problems <- tryCatch({
     # Uses your RUnit-aware checker that calls RUnit::runTestFile() per file
-    check_covr_skip_Bioc_nstf(pkg_source_path, mapping, test_path)
+    check_covr_skip_bioc_nstf(pkg_source_path, mapping, test_path)
   }, error = function(e) {
     cleanup_and_return_null(paste0("Error identifying skipped/problematic tests for ", pkg_name, " : ", e$message))
   })
@@ -106,7 +118,7 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   
   # create df with source files with no tests
   no_tests_df <- get_function_no_tests(mapping) 
- 
+  
   # Prepare mapping and build test file list from inst/unitTests
   clean_mapping <- if (anyNA(mapping)) tidyr::drop_na(mapping) else mapping
   root <- file.path(pkg_source_path, "inst", "unitTests")
@@ -135,8 +147,6 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   
   
   coverage <- tryCatch({
-    # Optional debug
-    # browser()
     
     # 0) Normalize test paths to forward slashes (Windows-safe)
     if (length(test_files_clean) == 0L) {
@@ -204,17 +214,17 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
     
     # set up inputs for calculating package coverage
     percent_cov <- as.numeric(res_cov$coverage$totalcoverage)
-   
+    
     functions_no_tests_df <- no_tests_df  # data.frame of functions lacking tests
     tests_passing <- test_files_clean               # character vector of passing test files
     tests_skipped <- skip_tests              # character vector of skipped test files
     
     # calculate package coverage
     calc_covr_list <- compute_total_coverage(percent_cov, 
-                           functions_no_tests_df, 
-                           tests_passing,
-                           tests_skipped
-                           )
+                                             functions_no_tests_df, 
+                                             tests_passing,
+                                             tests_skipped
+    )
     
     
     total_cov <- calc_covr_list$total_cov
@@ -229,9 +239,9 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
     
     message(sprintf(
       "Approx total coverage: (%.2f%%), counts: tested_functions=%d, untested_functions=%d, skipped_tests=%d",
-       percent_cov, n_functions_tests_passing, n_functions_no_tests, n_functions_tests_skipped
+      percent_cov, n_functions_tests_passing, n_functions_no_tests, n_functions_tests_skipped
     ))
-   
+    
     cleanup_and_return_null(env = cov_env)
     
     # structure the return list
@@ -270,70 +280,6 @@ run_covr_skip_bioc_nstf <- function(pkg_source_path, test_pkg_data, cov_env) {
   return(covr_list)
 }
 
-
-#' Detect if a package uses the Bioconductor RUnit layout
-#'
-#' Heuristics:
-#'  - inst/unitTests exists, OR
-#'  - tests/run_unitTests.R exists, OR
-#'  - explicit flag in test_pkg_data$has_BioG_test
-#'
-#' @keywords internal
-is_bioc_runit_layout <- function(pkg_source_path, test_pkg_data = NULL) {
-  inst_unitTests <- file.path(pkg_source_path, "inst", "unitTests")
-  run_ut_wrapper <- file.path(pkg_source_path, "tests", "run_unitTests.R")
-  
-  isTRUE(test_pkg_data$has_BioG_test) ||
-    dir.exists(inst_unitTests) ||
-    file.exists(run_ut_wrapper)
-}
-
-#' Detach a package if attached (internal)
-#'
-#' Safely detaches a package from the search path and optionally unloads its namespace.
-#' @keywords internal
-detach_pkg_if_attached <- function(pkg, unload_namespace = TRUE, quiet = TRUE) {
-  
-  pkg_search_name <- paste0("package:", pkg)
-  
-  if (pkg_search_name %in% search()) {
-    try(detach(pkg_search_name, unload = TRUE, character.only = TRUE), silent = quiet)
-    if (!quiet) message("Detached ", pkg_search_name)
-  }
-  if (isTRUE(unload_namespace) && isNamespaceLoaded(pkg)) {
-    try(unloadNamespace(pkg), silent = quiet)
-    if (!quiet) message("Unloaded namespace: ", pkg)
-  }
-  invisible(TRUE)
-}
-
-#' Prepare a BioC/RUnit package for testing
-#'
-#' Detaches common BioC infrastructure packages (if attached) and load_all() the target
-#' package before RUnit tests. Also clears R_TESTS to avoid interference from the check harness.
-#' @keywords internal
-prepare_for_bioc_runit <- function(pkg_name, pkg_source_path) {
-  
-  # Detach target if already attached
-  detach_pkg_if_attached(pkg_name)
-  # Detach common BioC infra that frequently collides with dev-load shims
-  for (p in c("IRanges", "S4Vectors", "BiocGenerics")) {
-    detach_pkg_if_attached(p)
-  }
-  
-  # Save current options and set warn = 1 temporarily
-  old_opts <- options()
-  options(warn = 1)
-  on.exit(options(old_opts), add = TRUE)
-  
-  
-  # Load package from source (dev)
-  pkgload::load_all(pkg_source_path, quiet = TRUE)
-  # Avoid R CMD check harness interference when running RUnit programmatically
-  Sys.setenv("R_TESTS" = "")
-  invisible(TRUE)
-}
-
 #' Check for skipped or errored test files (BiocGenerics)
 #'
 #' This internal function attempts to run test files mapped to source files and
@@ -345,7 +291,7 @@ prepare_for_bioc_runit <- function(pkg_name, pkg_source_path) {
 #'
 #' @return A data frame listing test files and any issues encountered.
 #' @keywords internal
-check_covr_skip_Bioc_nstf <- function(pkg_source_path, mapping, test_path) {
+check_covr_skip_bioc_nstf <- function(pkg_source_path, mapping, test_path) {
   
   # Guard: RUnit must be available
   if (!requireNamespace("RUnit", quietly = TRUE)) {
@@ -587,7 +533,7 @@ get_biocgenerics_test_paths <- function(test_pkg_data, testdir) {
 #' @param test_dir        Character; path to tests directory (e.g., file.path(pkg, "tests"))
 #' @return data.frame with columns: source_file, test_file, evidence, has_tests
 #' @keywords internal
-get_source_test_mapping_Bioc_nstf <- function(pkg_source_path, test_dir) {
+get_source_test_mapping_bioc_nstf <- function(pkg_source_path, test_dir) {
   source_dir <- file.path(pkg_source_path, "R")
   
   src_files  <- list.files(source_dir, pattern = "\\.R$", full.names = TRUE, recursive = FALSE)
@@ -732,5 +678,3 @@ get_source_test_mapping_Bioc_nstf <- function(pkg_source_path, test_dir) {
   rownames(mapping) <- NULL
   return(mapping)
 }
-
-

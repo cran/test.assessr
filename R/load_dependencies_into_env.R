@@ -1,5 +1,3 @@
-
-
 #' Null/empty coalescing operator
 #'
 #' Returns `b` when `a` is `NULL`, length-zero, or `NA`; otherwise returns `a`.
@@ -27,11 +25,11 @@
 #' @keywords internal
 #' @noRd
 get_field <- function(desc, field) {
-  if (!is.null(desc[1, field])) desc[1, field] else NA_character_
+  if (!is.null(desc) && field %in% colnames(desc)) desc[1, field] else NA_character_
 }
 
 
-' Normalize HTML-escaped version operators
+#' Normalize HTML-escaped version operators
 #'
 #' Converts HTML-escaped comparison operators (`&gt;`, `&lt;`) found in
 #' DESCRIPTION constraints into their literal forms (`>`, `<`), trims
@@ -261,7 +259,7 @@ resolve_description_deps <- function(desc, fields = c("Depends", "Imports", "Sug
     # create a an empty data frame that preserves the structure:
     # of column names, column types, zero rows.
     return(data.frame(package=character(), op=character(),
-                                      ver=character(), field=character()))
+                      ver=character(), field=character()))
   }
   
   res <- lapply(vals, function(x) {
@@ -278,7 +276,21 @@ resolve_description_deps <- function(desc, fields = c("Depends", "Imports", "Sug
       stringsAsFactors = FALSE
     )
   })
-  do.call(rbind, res[!vapply(res, is.null, logical(1))])
+  
+  # Ensure this function always returns a data.frame 
+  # (possibly zero-row) even when all tokens are dropped/unparseable.
+  res_filtered <- res[!vapply(res, is.null, logical(1))]
+  
+  if (length(res_filtered) == 0) {
+    return(data.frame(
+      package = character(),
+      op = character(),
+      ver = character(),
+      field = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, res_filtered)
 }
 
 

@@ -4,12 +4,16 @@
 \alias{load_package_datasets}
 \title{Load Datasets from a Package}
 \usage{
-load_package_datasets(pkg_name, env = cov_env)
+load_package_datasets(pkg_names, env, source_paths = NULL, overwrite = FALSE)
 }
 \arguments{
-\item{pkg_name}{A character string specifying the name of the package.}
+\item{pkg_names}{A character string specifying the name of the package.}
 
 \item{env}{A character string specifying the covr env}
+
+\item{source_paths}{A character string specifying the source paths}
+
+\item{overwrite}{A logical specifying whether datasets should be overwritten}
 }
 \value{
 A character vector of dataset names that were attempted to be loaded.

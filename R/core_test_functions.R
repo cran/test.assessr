@@ -1,4 +1,3 @@
-
 #' Run Coverage and Return Structured Coverage Results
 #'
 #' This function executes code coverage analysis for a package using the
@@ -165,4 +164,3 @@ run_covr <- function(path, timeout) {
     timeout = timeout
   )
 }
-

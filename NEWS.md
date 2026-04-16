@@ -1,3 +1,12 @@
+# test.assessr 2.0.0
+
+## New Features
+
+ - improved defensive handling of packages with standard testing frameworks
+ - improved defensive handling of packages with testit frameworks
+ - able to handle non-standard testing frameworks: tinytest, RUnit-only
+ - able to process multiple testing frameworks
+ 
 # test.assessr 1.1.1
 
 ## New Features
@@ -27,7 +36,7 @@
   - changed from .GlobalEnv. to baseenv
   - removed install packages from functions, examples and vignette
   - removed installed.packages()
-  
+
 # test.assessr 1.0.0
 
 First package version 

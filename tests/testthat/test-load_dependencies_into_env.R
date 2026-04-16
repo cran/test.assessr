@@ -48,7 +48,7 @@ test_that("parses and installs dependencies", {
   # --- Run & assertions ---
   suppressWarnings(result <- load_dependencies_into_env("fakepkg", env))
   expect_equal(result, invisible(TRUE))
- 
+  
   # import_namespace_exports() called three times: pkgA, pkgB, pkgC
   mockery::expect_called(import_mock, 3)
   mockery::expect_args(import_mock, 1, "pkgA", env, overwrite = TRUE)
@@ -136,6 +136,110 @@ test_that("imports exports from Depends into env", {
   mockery::expect_called(import_mock, 4)
   
 })
+
+
+test_that("resolve_description_deps returns zero-row data.frame when all tokens are unparseable", {
+  # dummy desc object – its structure is irrelevant because we stub get_field()
+  desc <- new.env(parent = emptyenv())
+  
+  # 1) Stub get_field() to return non-empty fields so vals > 0
+  #    (ensures the code reaches the res/res_filtered path rather than the earlier vals==0 return)
+  mockery::stub(
+    resolve_description_deps, 
+    "get_field",
+    function(d, f) {
+      switch(f,
+             "Depends"  = "A (>= 1.0), B",
+             "Imports"  = "C, D (>= 2.0)",
+             "Suggests" = "E",
+             ""         # default (unused)
+      )
+    }
+  )
+  
+  # 2) Stub parse_dep() to always return NULL so every token is dropped
+  mockery::stub(
+    resolve_description_deps,
+    "parse_dep",
+    function(x) NULL
+  )
+  
+  # Call the function – it should go through res -> res_filtered -> return zero-row df
+  out <- resolve_description_deps(desc, fields = c("Depends", "Imports", "Suggests"), exclude_R = TRUE)
+  
+  # Assertions: structure and zero rows
+  expect_true(is.data.frame(out))
+  expect_identical(names(out), c("package", "op", "ver", "field"))
+  expect_identical(nrow(out), 0L)
+  # Ensure character columns (stringsAsFactors = FALSE)
+  expect_true(all(vapply(out, typeof, character(1)) == "character"))
+})
+
+test_that("resolve_description_deps filters NULL entries and binds remaining rows", {
+  # Make sure an infix %||% exists for the function body
+  `%||%` <- function(a, b) if (!is.null(a)) a else b
+  
+  desc <- new.env(parent = emptyenv())
+  
+  # Return a mix of tokens across fields
+  mockery::stub(
+    resolve_description_deps,
+    "get_field",
+    function(d, f) {
+      switch(f,
+             "Depends"  = "A (>= 1.0), B",
+             "Imports"  = "R (>= 4.0), C",  # 'R' should be excluded when exclude_R = TRUE
+             "Suggests" = "D, E (>= 2.3)",
+             ""
+      )
+    }
+  )
+  
+  # parse_dep returns:
+  #  - a proper parsed list for A, C, E
+  #  - NULL for B and D (to test filtering via res_filtered line)
+  mockery::stub(
+    resolve_description_deps,
+    "parse_dep",
+    function(token) {
+      token <- trimws(token)
+      if (startsWith(token, "A")) list(pkg = "A", op = ">=", ver = "1.0")
+      else if (token == "B")      NULL
+      else if (token == "C")      list(pkg = "C", op = NULL, ver = NULL)  # will use %||% -> NA
+      else if (token == "D")      NULL
+      else if (startsWith(token, "E")) list(pkg = "E", op = ">=", ver = "2.3")
+      else NULL
+    }
+  )
+  
+  out <- resolve_description_deps(desc, fields = c("Depends", "Imports", "Suggests"), exclude_R = TRUE)
+  
+  # Should have rows for A, C, E (B and D dropped; R excluded)
+  expect_true(is.data.frame(out))
+  expect_identical(names(out), c("package", "op", "ver", "field"))
+  expect_setequal(out$package, c("A", "C", "E"))
+  # Check op/ver handling with %||% -> NA_character_ where missing
+  expect_true(is.character(out$op) && is.character(out$ver) && is.character(out$field))
+  # Confirm that exactly 3 rows are present
+  expect_equal(nrow(out), 3L)
+  
+  # Per-row checks (order-agnostic)
+  row_A <- out[out$package == "A", , drop = FALSE]
+  expect_identical(row_A$op, ">=")
+  expect_identical(row_A$ver, "1.0")
+  expect_identical(row_A$field, "Depends")
+  
+  row_C <- out[out$package == "C", , drop = FALSE]
+  expect_true(is.na(row_C$op))
+  expect_true(is.na(row_C$ver))
+  expect_identical(row_C$field, "Imports")
+  
+  row_E <- out[out$package == "E", , drop = FALSE]
+  expect_identical(row_E$op, ">=")
+  expect_identical(row_E$ver, "2.3")
+  expect_identical(row_E$field, "Suggests")
+})
+
 
 test_that("imports all exported symbols into environment", {
   env <- new.env()

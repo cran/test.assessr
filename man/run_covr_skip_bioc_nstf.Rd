@@ -4,7 +4,12 @@
 \alias{run_covr_skip_bioc_nstf}
 \title{Run coverage with skip detection for Bioconductor RUnit-based packages}
 \usage{
-run_covr_skip_bioc_nstf(pkg_source_path, test_pkg_data, cov_env)
+run_covr_skip_bioc_nstf(
+  pkg_source_path,
+  test_pkg_data,
+  cov_env,
+  framework = NULL
+)
 }
 \arguments{
 \item{pkg_source_path}{Character scalar. Path to the root of the package source.}
@@ -15,6 +20,11 @@ run_covr_skip_bioc_nstf(pkg_source_path, test_pkg_data, cov_env)
 
 \item{cov_env}{Environment that holds the temporary coverage workspace and
 shared state for the run.}
+
+\item{framework}{Optional character. When provided (e.g. from
+\code{run_one_framework}), restricts test paths to the framework-specific
+directory. Use when a package has multiple frameworks (e.g. testthat + testit)
+to avoid mixing paths across frameworks.}
 }
 \value{
 A `covr` coverage object on success; `NULL` on failure (via `cleanup_and_return_null()`).

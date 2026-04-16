@@ -1,124 +1,66 @@
-test_that("get package description works correctly (full DESCRIPTION, mocked set_up_pkg only)", {
-  # Create a temporary source directory with a real DESCRIPTION file
-  td <- file.path(tempdir(), paste0("fakepkg_", as.integer(runif(1, 1e6, 9e6))))
-  dir.create(td, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(td, recursive = TRUE, force = TRUE), add = TRUE)
+test_that("get package description works correctly", {
   
-  desc_lines <- c(
-    "Package: FAKEPKG",
-    "Version: 0.0.1",
-    "Title: A Fake Package for Testing",
-    "Description: Synthetic package metadata used in tests.",
-    "Authors@R: person('Unit','Test', email='test@example.org', role=c('aut','cre'))",
-    "License: MIT + file LICENSE",
-    "Depends: R (>= 3.5.0)",
-    "Imports: utils, stats",
-    "Suggests: testthat, mockery, checkmate",
-    "Enhances:",
-    "URL: https://example.org/fakepkg",
-    "BugReports: https://example.org/fakepkg/issues",
-    "Encoding: UTF-8",
-    "LazyData: true",
-    "NeedsCompilation: no",
-    "Packaged: 2026-02-12 10:00:00 UTC; tester",
-    "Maintainer: Unit Test <test@example.org>"
-  )
-  writeLines(desc_lines, file.path(td, "DESCRIPTION"))
+  r = getOption("repos")
+  r["CRAN"] = "http://cran.us.r-project.org"
+  options(repos = r)
   
-  # Wrapper so we can stub set_up_pkg() inside it while still calling get_pkg_desc() for real
-  subject <- function(dp) {
-    install_list <- set_up_pkg(dp)  # <-- will be stubbed
-    if (isTRUE(install_list$package_installed)) {
-      get_pkg_desc(install_list$pkg_source_path)  # <-- real function, covered by covr
-    } else {
-      NULL
-    }
+  dp <- system.file("test-data", "here-1.0.1.tar.gz", 
+                    package = "test.assessr")
+  
+  # set up package
+  install_list <- set_up_pkg(dp)
+  
+  package_installed <- install_list$package_installed
+  pkg_source_path <- install_list$pkg_source_path
+ 
+  if (package_installed == TRUE ) {	
+    pkg_desc <- get_pkg_desc(pkg_source_path)
+    
+    expect_identical(length(pkg_desc), 17L)
+    
+    expect_true(checkmate::check_list(pkg_desc, 
+                                      any.missing = FALSE)
+    )
+    
+    expect_true(checkmate::check_list(pkg_desc, 
+                                      types = "character")
+    )
+    
   }
   
-  # Fake set_up_pkg() return, pointing to our temp directory
-  fake_install_list <- list(
-    package_installed = TRUE,
-    pkg_source_path   = td
-  )
-  
-  fake_set_up_pkg <- mockery::mock(fake_install_list)
-  mockery::stub(subject, "set_up_pkg", fake_set_up_pkg)
-  
-  # Execute
-  pkg_desc <- subject("ignored")
-  
-  # Your original expectations
-  expect_identical(length(pkg_desc), 17L)
-  expect_true(checkmate::check_list(pkg_desc, any.missing = FALSE))
-  expect_true(checkmate::check_list(pkg_desc, types = "character"))
 })
 
-test_that("get package description respects 'fields' (subset read)", {
-  # Prepare another temp dir with a DESCRIPTION
-  td <- file.path(tempdir(), paste0("fakepkg_", as.integer(runif(1, 1e6, 9e6))))
-  dir.create(td, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(td, recursive = TRUE, force = TRUE), add = TRUE)
+test_that("get package name works correctly", {
   
-  desc_lines <- c(
-    "Package: FAKEPKG",
-    "Version: 0.0.1",
-    "Title: A Fake Package for Testing",
-    "Description: Synthetic package metadata used in tests."
-  )
-  writeLines(desc_lines, file.path(td, "DESCRIPTION"))
+  r = getOption("repos")
+  r["CRAN"] = "http://cran.us.r-project.org"
+  options(repos = r)
   
-  # Stub set_up_pkg() to return our directory
-  subject <- function(dp) {
-    install_list <- set_up_pkg(dp)
-    if (isTRUE(install_list$package_installed)) {
-      get_pkg_desc(install_list$pkg_source_path, fields = c("Package", "Version"))
-    } else NULL
-  }
-  fake_install_list <- list(package_installed = TRUE, pkg_source_path = td)
-  fake_set_up_pkg <- mockery::mock(fake_install_list)
-  mockery::stub(subject, "set_up_pkg", fake_set_up_pkg)
+  dp <- system.file("test-data", "MASS_7.3-65.tar.gz", 
+                    package = "test.assessr")
   
-  # Execute and assert
-  pkg_desc <- subject("ignored")
-  expect_identical(names(pkg_desc), c("Package", "Version"))
-  expect_identical(length(pkg_desc), 2L)
-  expect_true(checkmate::check_list(pkg_desc, any.missing = FALSE, types = "character"))
-  expect_identical(pkg_desc$Package, "FAKEPKG")
-  expect_identical(pkg_desc$Version, "0.0.1")
-})
-
-
-
-test_that("get package name works correctly (with stubbed set_up_pkg)", {
-  # Minimal wrapper so we can stub `set_up_pkg()` inside it.
-  subject <- function(dp) {
-    install_list <- set_up_pkg(dp)             # <-- will be stubbed
-    pkg_source_path <- install_list$pkg_source_path
-    get_pkg_name(pkg_source_path)
+  # set up package
+  install_list <- set_up_pkg(dp)
+  
+  package_installed <- install_list$package_installed
+  pkg_source_path <- install_list$pkg_source_path
+ 
+  if (package_installed == TRUE ) {	
+    pkg <- get_pkg_name(pkg_source_path)
+    
+    expect_identical(length(pkg), 1L)
+    
+    expect_true(checkmate::check_character(pkg, 
+                                           any.missing = FALSE)
+    )
+    
+    expect_true(checkmate::check_character(pkg, 
+                                           pattern = "MASS")
+    )
+    
   }
   
-  # Create a fake return value for set_up_pkg()
-  fake_install_list <- list(
-    package_installed = TRUE,
-    pkg_source_path   = "/tmp/build/FAKEPKG_0.0-1.tar.gz"
-  )
-  
-  # A mock that returns our fake list
-  fake_set_up_pkg <- mockery::mock(fake_install_list)
-  
-  # Stub set_up_pkg() inside `subject()`
-  mockery::stub(subject, "set_up_pkg", fake_set_up_pkg)
-  
-  # Call the subject; argument is irrelevant due to stubbing
-  pkg <- subject("ignored")
-  
-  # Assertions consistent with your original test’s intent
-  expect_identical(length(pkg), 1L)
-  
-  expect_true(checkmate::check_character(pkg, any.missing = FALSE))
-  expect_true(checkmate::check_character(pkg, pattern = "FAKEPKG"))
 })
-
 
 test_that("get_test_metadata returns correct metadata with executor", {
   # Mocked values
