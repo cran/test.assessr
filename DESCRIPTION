@@ -1,6 +1,6 @@
 Package: test.assessr
 Title: Assessing Package Test Reliability and Quality
-Version: 2.0.0
+Version: 2.1.0
 Authors@R: c(
     person("Edward", "Gillian", , "edward.gillian-ext@sanofi.com", role = c("cre", "aut"), comment = c(ORCID = "0000-0003-2732-5107")),
     person("Hugo", "Bottois", , "hugo.bottois@sanofi.com", role = "aut", comment = c(ORCID = "0000-0003-4674-0875")),
@@ -22,7 +22,7 @@ Config/testthat/edition: 3
 Config/build/clean-inst-doc: false
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2026-04-16 11:11:39 UTC; u1004798
+Packaged: 2026-04-30 10:03:19 UTC; u1004798
 Author: Edward Gillian [cre, aut] (ORCID:
     <https://orcid.org/0000-0003-2732-5107>),
   Hugo Bottois [aut] (ORCID: <https://orcid.org/0000-0003-4674-0875>),
@@ -31,4 +31,4 @@ Author: Edward Gillian [cre, aut] (ORCID:
   Sanofi [cph, fnd]
 Maintainer: Edward Gillian <edward.gillian-ext@sanofi.com>
 Repository: CRAN
-Date/Publication: 2026-04-16 11:50:02 UTC
+Date/Publication: 2026-04-30 17:00:02 UTC

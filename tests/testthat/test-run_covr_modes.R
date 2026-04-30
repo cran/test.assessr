@@ -1221,12 +1221,17 @@ test_that("run_covr_modes handles error when unloading package", {
 test_that("create_empty_covr_list returns correct structure", {
   pkg_name <- "mockpkg"
   error_message <- "No coverage data available"
+  tpd <- list(has_testthat = TRUE)
   
-  result <- create_empty_covr_list(pkg_name, error_message)
+  result <- create_empty_covr_list(pkg_name, error_message, test_pkg_data = tpd)
   
   expect_type(result, "list")
-  expect_named(result, c("total_cov", "res_cov"))
+  expect_identical(
+    names(result),
+    c("total_cov", "res_cov", "test_pkg_data")
+  )
   
+  expect_identical(result$test_pkg_data, tpd)
   expect_equal(result$total_cov, 0)
   expect_type(result$res_cov, "list")
   expect_equal(result$res_cov$name, pkg_name)
@@ -1235,6 +1240,13 @@ test_that("create_empty_covr_list returns correct structure", {
   expect_equal(rownames(result$res_cov$coverage$filecoverage), "No functions tested")
   expect_equal(result$res_cov$errors, error_message)
   expect_true(is.na(result$res_cov$notes))
+  
+  result_null <- create_empty_covr_list(
+    pkg_name,
+    error_message,
+    test_pkg_data = NULL
+  )
+  expect_null(result_null$test_pkg_data)
 })
 
 test_that("safe_unload_package unloads a loaded package", {
@@ -2787,6 +2799,7 @@ test_that("run_one_framework uses create_empty_covr_list when covr_list is NULL"
   expect_equal(result$total_cov, 0)
   expect_match(result$res_cov$errors, "Coverage failed for framework: testit")
   expect_equal(result$framework_id, "testit")
+  expect_identical(result$test_pkg_data, test_pkg_data)
 })
 
 empty_pkg_flags <- function() {

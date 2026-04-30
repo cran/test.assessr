@@ -1,7 +1,14 @@
 #' get package test coverage 
 #'  
 #' @description simplified input to assess package for test coverage
-#' @param path (optional) path of locally stored package source code
+#' @param path (optional) path to locally stored package source code. If
+#'   \code{package_installed = TRUE}, \code{path} must point to the unpacked
+#'   local package directory (the package root containing files such as
+#'   \code{DESCRIPTION}), not to a source tarball such as \code{.tar.gz}.
+#' @param package_installed (optional) logical flag that controls local
+#'   package installation. If \code{TRUE}, \code{install_package_local} is
+#'   skipped and \code{path} is used directly. If \code{NULL} or
+#'   \code{FALSE}, a local package installation is attempted.
 #' 
 #' @return 
 #' An object of class \code{"coverage"} as produced by 
@@ -19,8 +26,9 @@
 #' \code{test.assessr::generate_test_report()} to produce a human-readable test
 #' coverage report.
 #'
-#' Returns \code{NULL} if the package cannot be installed or if the specified
-#' path does not exist.
+#' Returns \code{NULL} if the package cannot be installed, if
+#' \code{install_list$pkg_source_path} is missing/empty, or if the specified
+#' \code{path} does not exist. 
 #' 
 #' @examples
 #' \donttest{
@@ -35,7 +43,7 @@
 #' pkg_test_coverage <- get_package_coverage(pkg_source_path)
 #' }
 #' @export
-get_package_coverage <-function(path = NULL) {
+get_package_coverage <-function(path = NULL, package_installed = NULL) {
   
   # record covr tests (temporarily set and restore on exit)
   old_covr_record_tests <- getOption("covr.record_tests")
@@ -57,14 +65,6 @@ get_package_coverage <-function(path = NULL) {
   oldwd <- getwd()  
   on.exit(setwd(oldwd))
   
-  # get user chosen file
-  pkg_source_path <- if (is.null(path)) file.choose() else path
-  
-  if (!file.exists(pkg_source_path)) {
-    warning(paste("The specified path", pkg_source_path, "does not exist. Returning NULL."))
-    return(NULL)
-  }
-  
   # --- Temporarily set CRAN repo (restore immediately on exit) ---
   old_repos <- getOption("repos")
   tmp_repos <- old_repos
@@ -72,16 +72,24 @@ get_package_coverage <-function(path = NULL) {
   options(repos = tmp_repos)
   # Ensure options are restored even if the function errors
   on.exit(options(repos = old_repos), add = TRUE)
+ 
+  pkg_source_path <- if (is.null(path)) file.choose() else path
   
-  # Set up the package using the temporary file
-  install_list <- set_up_pkg(pkg_source_path)
+  if (!file.exists(pkg_source_path)) {
+    warning(paste("The specified path", pkg_source_path, "does not exist. Returning NULL."))
+    return(NULL)
+  }
   
-  # Extract information from the installation list
-  package_installed <- install_list$package_installed
-  pkg_source_path <- install_list$pkg_source_path
-  
-  # check if the package needs to be installed locally
-  package_installed <- install_package_local(pkg_source_path)
+  if (!isTRUE(package_installed)) {
+    setup_result <- set_up_pkg(pkg_source_path)
+    pkg_source_path <- setup_result$pkg_source_path
+    
+    if (is.null(pkg_source_path) || !nzchar(pkg_source_path)) {
+      warning(paste("`pkg_source_path` is missing after setup. Returning NULL."))
+      return(NULL)
+    }
+    package_installed <- install_package_local(pkg_source_path)
+  } 
   
   # Check if the package was installed successfully
   if (package_installed == TRUE) {

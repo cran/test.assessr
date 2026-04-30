@@ -245,7 +245,7 @@ run_one_framework <- function(framework,
     message("running non-standard data.table testing framework")
     covr_list <- run_covr_skip_dt_nstf(pkg_source_path, test_pkg_data, cov_env)
     tf_type <- "non-standard testing framework - data.table"
-  
+    
   }  else if (test_pkg_data$has_RUnit_test && !test_pkg_data$has_BioG_test) {
     message("running non-standard RUnit testing framework")
     covr_list <- run_covr_skip_runit_nstf(pkg_source_path, test_pkg_data, cov_env, framework = framework)    
@@ -274,13 +274,17 @@ run_one_framework <- function(framework,
   }
   
   if (is.null(covr_list)) {
-    covr_list <- create_empty_covr_list(pkg, paste0("Coverage failed for framework: ", framework))
+    covr_list <- 
+      create_empty_covr_list(pkg, 
+                             paste0("Coverage failed for framework: ", framework),
+                             test_pkg_data = test_pkg_data)
   }
   
   covr_list$test_framework_type <- tf_type
   covr_list$framework_id <- framework
   
-  covr_list
+  
+  return(covr_list)
 }
 
 
@@ -367,41 +371,36 @@ run_covr_modes <- function(pkg_source_path,
   test_pkg_data <- check_pkg_tests_and_snaps(pkg_source_path)
   frameworks_found <- detect_frameworks(test_pkg_data)
   
+  # ---- initialize base result structure ------------------------------------
+  result <- list(
+    pkg_name = pkg_name,
+    pkg_ver = pkg_ver,
+    date_time = metadata$datetime,
+    executor = metadata$executor,
+    sysname = metadata$info$sys$sysname,
+    version = metadata$info$sys$version,
+    release = metadata$info$sys$release,
+    machine = metadata$info$sys$machine,
+    r_version = r_version
+  )
+  
   # ---- no framework: original fallback -------------------------------------
   if (length(frameworks_found) == 0) {
     message("No recognised standard or non-standard testing configuration")
-    covr_list <- list(
-      total_cov = 0,
-      res_cov = list(
-        name = pkg,
-        coverage = list(
-          filecoverage = matrix(0, nrow = 1, dimnames = list("No functions tested")),
-          totalcoverage = 0
-        ),
-        errors = "No recognised standard or non-standard testing configuration",
-        notes = NA
-      )
-    )
-    covr_list <- c(
-      list(
-        pkg_name = pkg_name,
-        pkg_ver = pkg_ver,
-        date_time = metadata$datetime,
-        executor = metadata$executor,
-        sysname = metadata$info$sys$sysname,
-        version = metadata$info$sys$version,
-        release = metadata$info$sys$release,
-        machine = metadata$info$sys$machine,
-        r_version = r_version,
-        test_framework_type = "non-standard testing framework"
+    result$test_framework_type <- "non-standard testing framework"
+    result$total_cov <- 0
+    result$res_cov <- list(
+      name = pkg,
+      coverage = list(
+        filecoverage = matrix(0, nrow = 1, dimnames = list("No functions tested")),
+        totalcoverage = 0
       ),
-      covr_list
+      errors = "No recognised standard or non-standard testing configuration",
+      notes = NA
     )
-    return(covr_list)
   }
-
   # ---- single framework: preserve original return shape --------------------
-  if (length(frameworks_found) == 1) {
+  else if (length(frameworks_found) == 1) {
     one <- run_one_framework(
       framework = frameworks_found[[1]],
       pkg = pkg,
@@ -411,61 +410,46 @@ run_covr_modes <- function(pkg_source_path,
     )
     one$test_framework_type <- NULL
     one$framework_id <- NULL
+    one$test_pkg_data <- NULL
     
-    covr_list <- c(
-      list(
-        pkg_name = pkg_name,
-        pkg_ver = pkg_ver,
-        date_time = metadata$datetime,
-        executor = metadata$executor,
-        sysname = metadata$info$sys$sysname,
-        version = metadata$info$sys$version,
-        release = metadata$info$sys$release,
-        machine = metadata$info$sys$machine,
-        r_version = r_version,
-        test_framework_type = get_test_framework_type(test_pkg_data, frameworks_found[[1]])
-      ),
-      one
-    )
-    return(covr_list)
+    result$test_framework_type <- get_test_framework_type(test_pkg_data, frameworks_found[[1]])
+    result <- c(result, one)
+  }
+  # ---- multiple frameworks: run each independently -------------------------
+  else {
+    message("Multiple test frameworks detected: ", paste(frameworks_found, collapse = ", "))
+    
+    per_framework <- lapply(frameworks_found, function(fr) {
+      run_one_framework(
+        framework = fr,
+        pkg = pkg,
+        test_pkg_data = test_pkg_data,
+        pkg_source_path = pkg_source_path,
+        covr_timeout = covr_timeout
+      )
+    })
+    names(per_framework) <- frameworks_found
+    
+    # Package-level test metadata belongs only in result$test_pkg_data (below).
+    # run_one_framework / create_empty_covr_list may attach copies per block.
+    per_framework <- lapply(per_framework, function(x) {
+      x$test_pkg_data <- NULL
+      x
+    })
+    
+    total_cov <- compute_multi_framework_total(per_framework)
+    
+    result$multi_framework <- TRUE
+    result$frameworks <- frameworks_found
+    result$total_cov <- total_cov
+    result$results <- per_framework
   }
   
-  # ---- multiple frameworks: run each independently -------------------------
-  message("Multiple test frameworks detected: ", paste(frameworks_found, collapse = ", "))
+  # ---- add test_pkg_data just before return --------------------------------
+  result$test_pkg_data <- test_pkg_data
   
-  per_framework <- lapply(frameworks_found, function(fr) {
-    
-    run_one_framework(
-      framework = fr,
-      pkg = pkg,
-      test_pkg_data = test_pkg_data,
-      pkg_source_path = pkg_source_path,
-      covr_timeout = covr_timeout
-    )
-  })
-  names(per_framework) <- frameworks_found
-  
-  total_cov <- compute_multi_framework_total(per_framework)
-  
-  out <- c(
-    list(
-      pkg_name = pkg_name,
-      pkg_ver = pkg_ver,
-      date_time = metadata$datetime,
-      executor = metadata$executor,
-      sysname = metadata$info$sys$sysname,
-      version = metadata$info$sys$version,
-      release = metadata$info$sys$release,
-      machine = metadata$info$sys$machine,
-      r_version = r_version,
-      multi_framework = TRUE,
-      frameworks = frameworks_found,
-      total_cov = total_cov
-    ),
-    list(results = per_framework)
-  )
-  
-  return(out)
+  # ---- single return statement at end ---------------------------------------
+  return(result)
 }
 
 
@@ -1181,12 +1165,14 @@ get_function_no_tests <- function(mapping_df) {
 #'
 #' @param pkg_name A character string representing the name of the package.
 #' @param error_message A character string describing the reason for the fallback.
+#' @param test_pkg_data Optional list from \code{check_pkg_tests_and_snaps()};
+#'   use \code{NULL} when unavailable (default).
 #'
 #' @return A named list containing default coverage values, the provided error message,
 #' and placeholder notes.
 #'
 #' @keywords internal
-create_empty_covr_list <- function(pkg_name, error_message) {
+create_empty_covr_list <- function(pkg_name, error_message, test_pkg_data = NULL) {
   list(
     total_cov = 0,
     res_cov = list(
@@ -1197,7 +1183,8 @@ create_empty_covr_list <- function(pkg_name, error_message) {
       ),
       errors = paste(error_message),
       notes = NA
-    )
+    ),
+    test_pkg_data = test_pkg_data
   )
 }
 

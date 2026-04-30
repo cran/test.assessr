@@ -169,7 +169,7 @@ test_that("run_covr_skip_stf processes no test dir and generates message", {
   
   # --- Assertions ---
   expect_type(result, "list")
-  expect_named(result, c("total_cov", "res_cov"))
+  expect_named(result, c("total_cov", "res_cov", "test_pkg_data"))
   
   expect_equal(result$total_cov, 0)
   
@@ -212,7 +212,7 @@ test_that("run_covr_skip_stf handles missing test directory correctly", {
   
   # Check that the result contains NAs as expected
   expect_type(result, "list")
-  testthat::expect_named(result, c("total_cov", "res_cov"))
+  testthat::expect_named(result, c("total_cov", "res_cov", "test_pkg_data"))
   testthat::expect_equal(result$res_cov$coverage$totalcoverage, 0)
   testthat::expect_equal(result$res_cov$errors, "No test directory found")
 })

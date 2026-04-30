@@ -1,4 +1,9 @@
 test_that("install_package_local works correctly", {
+  
+  # remotes::install_local(..., dependencies = TRUE) can be slow and hit CRAN
+  # check time/network limits 
+  skip_on_cran()
+  
   # get system file
   r = getOption("repos")
   r["CRAN"] = "http://cran.us.r-project.org"

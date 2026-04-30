@@ -4,10 +4,18 @@
 \alias{get_package_coverage}
 \title{get package test coverage}
 \usage{
-get_package_coverage(path = NULL)
+get_package_coverage(path = NULL, package_installed = NULL)
 }
 \arguments{
-\item{path}{(optional) path of locally stored package source code}
+\item{path}{(optional) path to locally stored package source code. If
+\code{package_installed = TRUE}, \code{path} must point to the unpacked
+local package directory (the package root containing files such as
+\code{DESCRIPTION}), not to a source tarball such as \code{.tar.gz}.}
+
+\item{package_installed}{(optional) logical flag that controls local
+package installation. If \code{TRUE}, \code{install_package_local} is
+skipped and \code{path} is used directly. If \code{NULL} or
+\code{FALSE}, a local package installation is attempted.}
 }
 \value{
 An object of class \code{"coverage"} as produced by 
@@ -25,8 +33,9 @@ The resulting object can be printed, summarized, or passed to
 \code{test.assessr::generate_test_report()} to produce a human-readable test
 coverage report.
 
-Returns \code{NULL} if the package cannot be installed or if the specified
-path does not exist.
+Returns \code{NULL} if the package cannot be installed, if
+\code{install_list$pkg_source_path} is missing/empty, or if the specified
+\code{path} does not exist.
 }
 \description{
 simplified input to assess package for test coverage

@@ -4,12 +4,15 @@
 \alias{create_empty_covr_list}
 \title{Create an empty covr list for fallback}
 \usage{
-create_empty_covr_list(pkg_name, error_message)
+create_empty_covr_list(pkg_name, error_message, test_pkg_data = NULL)
 }
 \arguments{
 \item{pkg_name}{A character string representing the name of the package.}
 
 \item{error_message}{A character string describing the reason for the fallback.}
+
+\item{test_pkg_data}{Optional list from \code{check_pkg_tests_and_snaps()};
+use \code{NULL} when unavailable (default).}
 }
 \value{
 A named list containing default coverage values, the provided error message,

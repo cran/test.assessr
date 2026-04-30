@@ -132,7 +132,9 @@ run_covr_skip_stf <- function(pkg_source_path,
   
   if (is.null(test_results_long)) {
     message(paste0("Unable to create skipped tests for :", pkg))
-    return(create_empty_covr_list(pkg, "Skipped tests map creation failed"))
+    return(create_empty_covr_list(pkg, 
+                                  "Skipped tests map creation failed", 
+                                  test_pkg_data = test_pkg_data))
   }
   
   lookup <- c(code_script = "context", context = "test")

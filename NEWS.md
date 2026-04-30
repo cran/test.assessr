@@ -1,12 +1,19 @@
+# test.assessr 2.1.0
+
+## New Features
+
+- get_package_coverage - has new parameter (package_installed) and stores test_pkg_data in covr_list
+- install_package_local - 1st test ("install_package_local works correctly") has skip_on_cran
+
 # test.assessr 2.0.0
 
 ## New Features
 
- - improved defensive handling of packages with standard testing frameworks
- - improved defensive handling of packages with testit frameworks
- - able to handle non-standard testing frameworks: tinytest, RUnit-only
- - able to process multiple testing frameworks
- 
+- improved defensive handling of packages with standard testing frameworks
+- improved defensive handling of packages with testit frameworks
+- able to handle non-standard testing frameworks: tinytest, RUnit-only
+- able to process multiple testing frameworks
+
 # test.assessr 1.1.1
 
 ## New Features
