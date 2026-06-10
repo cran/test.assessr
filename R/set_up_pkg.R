@@ -47,7 +47,9 @@ set_up_pkg <- function(dp) {
   } else {
     if (fs::file_exists(pkg_source_path)) {
       package_installed <- TRUE
-    }
+    } else {
+      package_installed <- FALSE
+    }  
   }
   
   install_list <- list(

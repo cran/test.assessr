@@ -1,6 +1,6 @@
-590aad99b18c30fb8617ba00b3e6dd97 *DESCRIPTION
+da693eff971a40ec130625dded787de3 *DESCRIPTION
 e7f0182446d92320d753896e3142dcaf *NAMESPACE
-b60563a760ac8bf5316a086d1829ab40 *NEWS.md
+0334beadde23886413d898fcd4f132fa *NEWS.md
 07cae9cf843caa36b79b372ba419a885 *R/aaa-cov-env.R
 fbb2aff59aa3b2fd5768584f8658a9ed *R/core_test_functions.R
 cb68feca59c6c6d56456ab8803383108 *R/generate_test_report.R
@@ -8,7 +8,7 @@ cb68feca59c6c6d56456ab8803383108 *R/generate_test_report.R
 fa3ee8e7e2229cdd33eb0e50ef62607a *R/get_tests_long_sum_stf.R
 2757859c2b64028991342e77e60b8a8d *R/get_tests_skip_stf.R
 6f1902083d95314b21a28042d7bcd11b *R/globals.R
-6d4a45801b597c0124e97545da0657a5 *R/install_package_local.R
+29174919df71235e1b4e06f6e746e596 *R/install_package_local.R
 7c9fefbd18d1a15bf3453a5af021e1f7 *R/load_dependencies_into_env.R
 9dfaa8e7c43463a5a9e712c930479e8b *R/map_tests_stf.R
 d86dd154e4cf87aa74c07309c335083b *R/run_covr_modes.R
@@ -17,11 +17,11 @@ b9c318090dbfd819d32a12d0c679fe6b *R/run_covr_skip_dt_nstf.R
 1dcb8c675a2cbec91b547e57be8c79fe *R/run_covr_skip_nstf.R
 627d5309fe64f2b2243eb39ee276546e *R/run_covr_skip_runit_nstf.R
 be66766cc92d4e20f98f41c0bcf94aea *R/run_covr_skip_stf.R
-7430b89fa39239c40de5310758734f5d *R/set_up_pkg.R
+7ea73c41a7d001570d653e5d559ab3e2 *R/set_up_pkg.R
 67d0868aaf53abb5a7c2d41611291a4a *R/unittest_methods.R
-2ae2af98f1acb5ecf2f99b61608b83e1 *R/unpack_tarball.R
+918b5bba02677427e7d5bc3c2aa85936 *R/unpack_tarball.R
 7214ba9b1649f225337c8719bdf65561 *R/utils.R
-72fd83bf136e13df9d7cc5fb3c85cc27 *README.md
+67907b7eeb6f5864f7eb34507fb0d7e9 *README.md
 018ea76253074aa8fa6ece1f8abb7f9d *build/vignette.rds
 285ff8a90fba248dc83be15127e4c920 *inst/doc/Generate_Test_Report.R
 ba928f632c2282028b9d90a914041f7d *inst/doc/Generate_Test_Report.Rmd
@@ -151,6 +151,7 @@ c57aa60b33ebc0f971d51be972c4105c *man/safe_unload_package.Rd
 dc0e40e579676e317c6615ff8de2596d *man/unpack_tarball.Rd
 157bd04be44fbfecc9789a875095c50f *man/unrowname.Rd
 e72b795549aac42f7e27e1ed022a740c *tests/testthat.R
+8416f1ed628b4b7d548f37f96aee1b50 *tests/testthat/helper-skip_conditions.R
 fc895bde42b13051ae35908577c02b72 *tests/testthat/helper_covr_env.R
 656a3c640a76b1ee5d3a5d19939185fe *tests/testthat/setup.R
 271c446ecca4f48d81384219169c6a0e *tests/testthat/test-core_test_functions.R
@@ -159,7 +160,7 @@ f976c05988da6eaf84b9040d5e5c53f9 *tests/testthat/test-get_package_coverage.R
 2c3663408b49b21930ed860cf0612f9a *tests/testthat/test-get_pkg_name.R
 62be70d2f816a71555e6fe3d1ee6a0e6 *tests/testthat/test-get_tests_long_sum_stf.R
 9aa99cefaaa65876f48e1fa197974d3a *tests/testthat/test-get_tests_skip_stf.R
-d65135b1065a921b3685cc3592d3beac *tests/testthat/test-install_package_local.R
+18ddc3865e869289e2d3beafc45aa89e *tests/testthat/test-install_package_local.R
 1b38e84d25c9bb2328bf81f24f749a44 *tests/testthat/test-load_dependencies_into_env.R
 8b74c3640b86c7ecaecdbf70aac18156 *tests/testthat/test-map_tests_stf.R
 cbdbaa8698f1b596c15ae3616fba1083 *tests/testthat/test-run_coverage.R
@@ -170,10 +171,11 @@ fd7454ef3928339317b68c33bc7a0d6b *tests/testthat/test-run_covr_skip_bioc_nstf.R
 a8eee7530a0bdce080e54acc44969f58 *tests/testthat/test-run_covr_skip_nstf.R
 1caef86e797b475bf10aae873fd7a33d *tests/testthat/test-run_covr_skip_runit_nstf.R
 50272c93066f1e55971efdab66c8707b *tests/testthat/test-run_covr_skip_stf.R
-afa1bcb95d38caffc79264fd84da59a2 *tests/testthat/test-set_up_pkg.R
+599e75a5cca135146ce3c42c7c1541b7 *tests/testthat/test-set_up_pkg.R
+1427b82ed00fc42b3245856bd131c714 *tests/testthat/test-skip_conditions.R
 730d3269688afa1f54500bf1419c2f8a *tests/testthat/test-unittest_methods.R
-d05191f002592513cb798f13abb6bfac *tests/testthat/test-unpack_tarball.R
-62060ff1a3cf8555f91874872ca7228b *tests/testthat/test-utils.R
+4a0e8bcebc1c4fe2aef302da93254f4b *tests/testthat/test-unpack_tarball.R
+2e2c6c6c3a84a6cbb629292be27c1508 *tests/testthat/test-utils.R
 ba928f632c2282028b9d90a914041f7d *vignettes/Generate_Test_Report.Rmd
 6a289ff5bc31690741bc8ea6e4d8fc32 *vignettes/How_to_Start.Rmd
 0dc3580f5cfc93e64c03279c51004860 *vignettes/NSTF_Testing_Frameworks.Rmd

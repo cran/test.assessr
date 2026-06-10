@@ -8,6 +8,7 @@ test_that("install_package_local works correctly", {
   r = getOption("repos")
   r["CRAN"] = "http://cran.us.r-project.org"
   options(repos = r)
+  skip_if_repo_unavailable()
   
   # Copy test package to a temp file
   dp_orig <- system.file("test-data", 
@@ -102,3 +103,33 @@ test_that("install_package_local handles already installed package", {
   result <- install_package_local(file.path(temp_dir, "mock_package"))
   expect_true(result)
 })
+
+test_that("error handler emits 'Local installation issue is:' message and returns FALSE when remotes::install_local throws", {
+  # Use a real temp dir so dir.exists() returns TRUE naturally -> reaches the tryCatch else branch
+  pkg_path <- withr::local_tempdir()
+  
+  mockery::stub(install_package_local, "get_pkg_name",           function(...) "fakepkg")
+  mockery::stub(install_package_local, "requireNamespace",       FALSE)
+  mockery::stub(install_package_local, "remotes::install_local", function(...) stop("network error: cannot reach CRAN"))
+  
+  expect_message(
+    result <- install_package_local(pkg_path),
+    regexp = "Local installation issue is:"
+  )
+  expect_false(result)
+})
+
+test_that("error handler emits '<pkg> not installed locally' message and returns FALSE when remotes::install_local throws", {
+  pkg_path <- withr::local_tempdir()
+  
+  mockery::stub(install_package_local, "get_pkg_name",           function(...) "fakepkg")
+  mockery::stub(install_package_local, "requireNamespace",       FALSE)
+  mockery::stub(install_package_local, "remotes::install_local", function(...) stop("install failed"))
+  
+  expect_message(
+    result <- install_package_local(pkg_path),
+    regexp = "fakepkg not installed locally"
+  )
+  expect_false(result)
+})
+

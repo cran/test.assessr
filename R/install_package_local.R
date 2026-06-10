@@ -47,7 +47,7 @@ install_package_local <- function(pkg_source_path) {
     message(paste0(pkg_disp, " is already installed"))
     package_installed <- TRUE
   } else {
-    tryCatch(
+    package_installed <- tryCatch(
       {
         remotes::install_local(
           pkg_source_path,
@@ -58,12 +58,12 @@ install_package_local <- function(pkg_source_path) {
           INSTALL_opts = "--with-keep.source"
         )
         message(paste0(pkg_disp, " installed locally"))
-        package_installed <- TRUE
+        TRUE
       },
       error = function(cond) {
         message(paste0("Local installation issue is: ", cond))
         message(paste0(pkg_disp, " not installed locally"))
-        package_installed <- FALSE
+        FALSE
       }
     )
   }

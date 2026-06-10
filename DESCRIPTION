@@ -1,6 +1,6 @@
 Package: test.assessr
 Title: Assessing Package Test Reliability and Quality
-Version: 2.1.0
+Version: 2.1.2
 Authors@R: c(
     person("Edward", "Gillian", , "edward.gillian-ext@sanofi.com", role = c("cre", "aut"), comment = c(ORCID = "0000-0003-2732-5107")),
     person("Hugo", "Bottois", , "hugo.bottois@sanofi.com", role = "aut", comment = c(ORCID = "0000-0003-4674-0875")),
@@ -9,20 +9,22 @@ Authors@R: c(
     person("Sanofi", role = c("cph", "fnd")))
 Description: A reliable and validated tool that calculates unit test coverage for R packages with standard testing frameworks and non-standard testing frameworks.
 License: GPL (>= 2)
-BugReports: https://github.com/Sanofi-Public/test.assessr/issues
+BugReports: https://github.com/pharmaverse/test.assessr/issues
 Depends: R (>= 4.1.0)
-Imports: callr, checkmate, covr, dplyr, fs, jsonlite, pkgload, remotes,
-        rlang, rmarkdown, RUnit, stringr (>= 1.5.0), testthat (>=
-        3.0.0), tinytest, tidyr, utils, withr
-Suggests: devtools, DT, here, kableExtra (>= 1.4.0), knitr, methods,
-        R6, S7, roxygen2, tidyselect, tools, mockery
+Imports: callr, checkmate, covr (>= 3.6.0), dplyr, fs, jsonlite,
+        pkgload, remotes, rlang, rmarkdown, RUnit, stringr (>= 1.5.0),
+        testthat (>= 3.0.0), tinytest, tidyr, utils, withr
+Suggests: curl, devtools, DT, here, kableExtra (>= 1.4.0), knitr,
+        methods, R6, S7, roxygen2, testit (>= 0.13), tidyselect, tools,
+        mockery
 Encoding: UTF-8
-RoxygenNote: 7.3.3
 Config/testthat/edition: 3
 Config/build/clean-inst-doc: false
 VignetteBuilder: knitr
+Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.3
 NeedsCompilation: no
-Packaged: 2026-04-30 10:03:19 UTC; u1004798
+Packaged: 2026-06-10 05:31:57 UTC; u1004798
 Author: Edward Gillian [cre, aut] (ORCID:
     <https://orcid.org/0000-0003-2732-5107>),
   Hugo Bottois [aut] (ORCID: <https://orcid.org/0000-0003-4674-0875>),
@@ -31,4 +33,4 @@ Author: Edward Gillian [cre, aut] (ORCID:
   Sanofi [cph, fnd]
 Maintainer: Edward Gillian <edward.gillian-ext@sanofi.com>
 Repository: CRAN
-Date/Publication: 2026-04-30 17:00:02 UTC
+Date/Publication: 2026-06-10 09:10:02 UTC

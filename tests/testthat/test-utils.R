@@ -1,8 +1,69 @@
+test_that("get_pkg_desc returns all fields as a named list from mocked DESCRIPTION", {
+  fake_path <- "/fake/pkg"
+  
+  # Simulate read.dcf() returning a one-row matrix as it would for a real DESCRIPTION file
+  fake_dcf <- matrix(
+    c("mypackage", "0.1.0", "What the package does", "GPL-3", "A Person <a@b.com>"),
+    nrow = 1L,
+    dimnames = list(NULL, c("Package", "Version", "Title", "License", "Author"))
+  )
+  mockery::stub(get_pkg_desc, "read.dcf", fake_dcf)
+  
+  result <- get_pkg_desc(fake_path)
+  
+  expect_type(result, "list")
+  expect_named(result, c("Package", "Version", "Title", "License", "Author"))
+  expect_identical(result$Package, "mypackage")
+  expect_identical(result$Version, "0.1.0")
+  expect_identical(result$License, "GPL-3")
+})
+
+test_that("get_pkg_desc passes fields argument through to read.dcf", {
+  fake_path <- "/fake/pkg"
+  
+  # Capture the arguments that read.dcf is called with
+  mock_read_dcf <- mockery::mock(
+    matrix(c("mypackage", "0.2.0"), nrow = 1L,
+           dimnames = list(NULL, c("Package", "Version")))
+  )
+  mockery::stub(get_pkg_desc, "read.dcf", mock_read_dcf)
+  
+  result <- get_pkg_desc(fake_path, fields = c("Package", "Version"))
+  
+  # Verify read.dcf was called with the correct path and fields
+  mockery::expect_called(mock_read_dcf, 1)
+  call_args <- mockery::mock_args(mock_read_dcf)[[1]]
+  expect_identical(call_args[[1]], file.path(fake_path, "DESCRIPTION"))
+  expect_identical(call_args[["fields"]], c("Package", "Version"))
+  
+  expect_identical(result$Package, "mypackage")
+  expect_identical(result$Version, "0.2.0")
+})
+
+test_that("get_pkg_desc returns a list with NA values for missing optional fields", {
+  fake_path <- "/fake/pkg"
+  
+  # read.dcf returns NA for fields absent from the file when fields= is specified
+  fake_dcf <- matrix(
+    c("mypackage", NA_character_),
+    nrow = 1L,
+    dimnames = list(NULL, c("Package", "URL"))
+  )
+  mockery::stub(get_pkg_desc, "read.dcf", fake_dcf)
+  
+  result <- get_pkg_desc(fake_path, fields = c("Package", "URL"))
+  
+  expect_type(result, "list")
+  expect_identical(result$Package, "mypackage")
+  expect_true(is.na(result$URL))
+})
+
 test_that("get package description works correctly", {
   
   r = getOption("repos")
   r["CRAN"] = "http://cran.us.r-project.org"
-  options(repos = r)
+  withr::local_options(list(repos = r))
+  skip_if_repo_unavailable()
   
   dp <- system.file("test-data", "here-1.0.1.tar.gz", 
                     package = "test.assessr")
@@ -34,7 +95,8 @@ test_that("get package name works correctly", {
   
   r = getOption("repos")
   r["CRAN"] = "http://cran.us.r-project.org"
-  options(repos = r)
+  withr::local_options(list(repos = r))
+  skip_if_repo_unavailable()
   
   dp <- system.file("test-data", "MASS_7.3-65.tar.gz", 
                     package = "test.assessr")
